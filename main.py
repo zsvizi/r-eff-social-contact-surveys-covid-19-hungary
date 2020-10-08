@@ -5,6 +5,7 @@ import numpy as np
 
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
+from r0 import R0Generator
 
 
 class Simulation:
@@ -15,6 +16,7 @@ class Simulation:
         self.parameters = self.data.model_parameters_data
         self.parameters.update({"beta": 0.31975})
         self.parameters.update({"susc": np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1])})
+        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age)
 
         self.time_plot = 100
         self.bin_size = 100
@@ -43,6 +45,12 @@ class Simulation:
                                           matrix=contact_mtx.reshape((self.model.n_age, self.model.n_age)))
         solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
                                            contact_matrix=contact_matrix)
+        if iv is None:
+            population = self.model.population
+            susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
+            print("R0:", 2.2 / self.r0_generator.get_eig_val(contact_mtx=contact_matrix,
+                                                             population=population,
+                                                             susceptibles=susceptibles)[0])
         return solution
 
 

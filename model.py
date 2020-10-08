@@ -88,8 +88,11 @@ class RostModelHungary:
         v = np.array(model_eq).flatten()
         return v
 
+    def get_comp(self, solution, idx):
+        return solution[:, idx * self.n_age:(idx + 1) * self.n_age]
+
     def aggregate_by_age(self, solution, idx):
-        return np.sum(solution[:, idx * self.n_age:(idx + 1) * self.n_age], axis=1)
+        return np.sum(self.get_comp(solution, idx), axis=1)
 
     def get_cumulative(self, solution):
         idx = self.c_idx["c"]
