@@ -21,7 +21,7 @@ class R0Generator:
 
     def get_eig_val(self, contact_mtx: np.array, susceptibles: np.ndarray, population: np.ndarray) -> List[np.float]:
         # contact matrix needed for effective reproduction number: [c_{j,i} * S_i(t) / N_i(t)]
-        contact_matrix = contact_mtx / population.reshape((1, -1))
+        contact_matrix = contact_mtx / population.reshape((-1, 1))
         cm_tensor = np.tile(contact_matrix, (susceptibles.shape[0], 1, 1))
         susc_tensor = susceptibles.reshape((susceptibles.shape[0], 1, susceptibles.shape[1]))
         contact_matrix_tensor = cm_tensor * susc_tensor
