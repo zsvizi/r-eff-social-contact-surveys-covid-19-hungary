@@ -45,10 +45,11 @@ class RostModelHungary:
 
         return np.array([iv[comp] for comp in self.compartments]).flatten()
 
-    def get_solution(self, t, parameters, contact_matrix, initial_values):
+    def get_solution(self, t: np.ndarray, parameters: dict,
+                     contact_matrix: np.ndarray, initial_values: np.ndarray) -> np.ndarray:
         return np.array(odeint(self._get_model, initial_values, t, args=(parameters, contact_matrix)))
 
-    def _get_model(self, xs, _, ps, contact_matrix):
+    def _get_model(self, xs: np.ndarray, _, ps: dict, contact_matrix: np.ndarray) -> np.ndarray:
         # the same order as in self.compartments!
         s, l1, l2, ip, ia1, ia2, ia3, is1, is2, is3, ih, ic, icr, r, d, c = xs.reshape(-1, self.n_age)
 
@@ -88,25 +89,25 @@ class RostModelHungary:
         v = np.array(model_eq).flatten()
         return v
 
-    def get_comp(self, solution, idx):
+    def get_comp(self, solution: np.ndarray, idx: int) -> np.ndarrray:
         return solution[:, idx * self.n_age:(idx + 1) * self.n_age]
 
-    def aggregate_by_age(self, solution, idx):
+    def aggregate_by_age(self, solution: np.ndarray, idx: int) -> np.ndarrray:
         return np.sum(self.get_comp(solution, idx), axis=1)
 
-    def get_cumulative(self, solution):
+    def get_cumulative(self, solution: np.ndarray) -> np.ndarrray:
         idx = self.c_idx["c"]
         return self.aggregate_by_age(solution, idx)
 
-    def get_deaths(self, solution):
+    def get_deaths(self, solution: np.ndarray) -> np.ndarrray:
         idx = self.c_idx["d"]
         return self.aggregate_by_age(solution, idx)
 
-    def get_hospitalized(self, solution):
+    def get_hospitalized(self, solution: np.ndarray) -> np.ndarrray:
         idx = self.c_idx["ih"]
         idx_2 = self.c_idx["icr"]
         return self.aggregate_by_age(solution, idx) + self.aggregate_by_age(solution, idx_2)
 
-    def get_ventilated(self, solution):
+    def get_ventilated(self, solution: np.ndarray) -> np.ndarrray:
         idx = self.c_idx["ic"]
         return self.aggregate_by_age(solution, idx)
