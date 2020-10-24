@@ -25,7 +25,7 @@ class Simulation:
         self.n_cm = 13
         self.time_plot = 7 * self.n_cm
 
-    def run(self):
+    def run(self) -> None:
         # Get transformed contact matrix
         cm = self._get_transformed_cm(cm=self.data.contact_data.iloc[0].to_numpy())
 
@@ -70,11 +70,11 @@ class Simulation:
         beta = self.r0 / eig_value_0
         return beta
 
-    def _get_transformed_cm(self, cm):
+    def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
         return transform_matrix(age_data=self.data.age_data,
                                 matrix=cm.reshape((self.model.n_age, self.model.n_age)))
 
-    def _get_r_eff(self, cm, solution):
+    def _get_r_eff(self, cm: np.ndarray, solution: np.ndarray) -> np.ndarray:
         susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
         r_eff = self.parameters["beta"] * self.r0_generator.get_eig_val(contact_mtx=cm,
                                                                         population=self.model.population,
@@ -92,7 +92,7 @@ class Simulation:
                                            contact_matrix=contact_mtx)
         return solution
 
-    def _plot_r_eff(self, r_eff):
+    def _plot_r_eff(self, r_eff: np.ndarray) -> None:
         # Plot effective reproduction number
         t = np.linspace(0, self.time_plot, 1 + self.time_plot * self.bin_size)
         fig = plt.figure(figsize=(6, 6))
@@ -100,7 +100,7 @@ class Simulation:
         fig.savefig(os.path.join("./plots", 'r_eff.pdf'))
         plt.show()
 
-    def _plot_dynamics(self, sol):
+    def _plot_dynamics(self, sol: np.ndarray) -> None:
         # Plot daily incidence
         t = np.linspace(0, self.time_plot, self.time_plot * self.bin_size)
         fig = plt.figure(figsize=(6, 6))
