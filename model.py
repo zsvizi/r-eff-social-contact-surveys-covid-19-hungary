@@ -89,25 +89,25 @@ class RostModelHungary:
         v = np.array(model_eq).flatten()
         return v
 
-    def get_comp(self, solution: np.ndarray, idx: int) -> np.ndarrray:
+    def get_comp(self, solution: np.ndarray, idx: int) -> np.ndarray:
         return solution[:, idx * self.n_age:(idx + 1) * self.n_age]
 
-    def aggregate_by_age(self, solution: np.ndarray, idx: int) -> np.ndarrray:
+    def aggregate_by_age(self, solution: np.ndarray, idx: int) -> np.ndarray:
         return np.sum(self.get_comp(solution, idx), axis=1)
 
-    def get_cumulative(self, solution: np.ndarray) -> np.ndarrray:
+    def get_cumulative(self, solution: np.ndarray) -> np.ndarray:
         idx = self.c_idx["c"]
         return self.aggregate_by_age(solution, idx)
 
-    def get_deaths(self, solution: np.ndarray) -> np.ndarrray:
+    def get_deaths(self, solution: np.ndarray) -> np.ndarray:
         idx = self.c_idx["d"]
         return self.aggregate_by_age(solution, idx)
 
-    def get_hospitalized(self, solution: np.ndarray) -> np.ndarrray:
+    def get_hospitalized(self, solution: np.ndarray) -> np.ndarray:
         idx = self.c_idx["ih"]
         idx_2 = self.c_idx["icr"]
         return self.aggregate_by_age(solution, idx) + self.aggregate_by_age(solution, idx_2)
 
-    def get_ventilated(self, solution: np.ndarray) -> np.ndarrray:
+    def get_ventilated(self, solution: np.ndarray) -> np.ndarray:
         idx = self.c_idx["ic"]
         return self.aggregate_by_age(solution, idx)
