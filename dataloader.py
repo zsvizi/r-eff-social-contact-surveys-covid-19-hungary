@@ -21,7 +21,7 @@ class DataLoader:
     def __init__(self):
         self._model_parameters_data_file = os.path.join(PROJECT_PATH, "data", "model_parameters.json")
         self._contact_data_file = os.path.join(PROJECT_PATH,
-                                               "contact_matrix", "results", "ActKAFMtxDyn_t_fmtx8x8_wds7_wsh1.csv")
+                                               "contact_matrix", "results", "dynmatrix_step_1d_window_7d.csv")
         self._age_data_file = os.path.join(PROJECT_PATH, "data", "age_distribution.xls")
 
         self._get_age_data()

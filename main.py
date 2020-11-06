@@ -21,9 +21,14 @@ class Simulation:
         self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age)
         self.parameters.update({"beta": self._get_initial_beta()})
 
-        self.bin_size = 100
-        self.n_cm = 13
-        self.time_plot = 7 * self.n_cm
+        # Number of points evaluated for a time unit in odeint
+        self.bin_size = 10
+        # Number of contact matrices used for the simulation
+        self.n_cm = 25
+        # Number of days, where one contact matrix is valid
+        n_days = 1
+        # Number of time points plotted
+        self.time_plot = n_days * self.n_cm
 
     def run(self) -> None:
         # Get transformed contact matrix
