@@ -22,11 +22,15 @@ class DataLoader:
         self._model_parameters_data_file = os.path.join(PROJECT_PATH, "data", "model_parameters.json")
         self._contact_data_file = os.path.join(PROJECT_PATH,
                                                "contact_matrix", "results", "dynmatrix_step_1d_window_7d.csv")
+        self._reference_contact_file = os.path.join(PROJECT_PATH,
+                                                    "contact_matrix", "results",
+                                                    "RefWeekFMtxDyn_t_fmtx8x8_wds30_wsh1.csv")
         self._age_data_file = os.path.join(PROJECT_PATH, "data", "age_distribution.xls")
 
         self._get_age_data()
         self._get_model_parameters_data()
         self._get_contact_mtx()
+        # self._get_reference_contact_mtx()
 
     def _get_age_data(self):
         wb = xlrd.open_workbook(self._age_data_file)
@@ -54,3 +58,9 @@ class DataLoader:
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
         self.contact_data = data
+
+    def _get_reference_contact_mtx(self):
+        data = pd.read_csv(self._reference_contact_file, delimiter=',|:',
+                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
+
+        self.reference_contact_data = data
