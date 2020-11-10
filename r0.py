@@ -26,7 +26,8 @@ class R0Generator:
         eig_val_eff = []
         for cm in contact_matrix_tensor:
             f = self.__get_f(cm)
-            eig_val_eff.append(float(np.linalg.eig(np.dot(f, self.v_inv))[0][0]))
+            eig_val = np.sort(np.linalg.eig(np.dot(f, self.v_inv))[0])
+            eig_val_eff.append(float(eig_val[-1]))
 
         return np.array(eig_val_eff)
 
