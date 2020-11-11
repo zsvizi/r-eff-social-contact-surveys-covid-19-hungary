@@ -11,14 +11,25 @@ from r0 import R0Generator
 
 class Simulation:
     def __init__(self):
+        """
+        Constructor initializing class by
+        - loading data (contact matrices, model parameters, age distribution)
+        - creates model and r0generator objects
+        - calculates initial transmission rate
+        """
+        # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
         self.data = DataLoader()
+        # Instantiate dynamical system
         self.model = RostModelHungary(model_data=self.data)
 
         self.r0 = 2.2
+        # Get model parameters from DataLoader and append susceptibility age vector to the dictionary
         self.parameters = self.data.model_parameters_data
         self.parameters.update({"susc": np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1])})
 
+        # Instantiate R0generator object for calculating effective reproduction numbers
         self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age)
+        # Calculate initial transmission rate (beta) based on reference matrix and self.r0
         self.parameters.update({"beta": self._get_initial_beta()})
 
         # Number of points evaluated for a time unit in odeint
@@ -31,17 +42,26 @@ class Simulation:
         self.time_plot = n_days * self.n_cm
 
     def run(self) -> None:
-        # Get transformed contact matrix
+        """
+        Run simulation, see details below
+        :return: None
+        """
+        # Get transformed contact matrix (here, we have the reference matrix)
+        # Transform means: multiply by age distribution as a column,
+        # then take average of result and transpose of result
+        # then divide by the age distribution as a column
         cm = self._get_transformed_cm(cm=self.data.contact_data.iloc[0].to_numpy())
 
-        # Get solution for the first time interval
+        # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm)
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
+        # R_eff is calculated at each points for which odeint gives values ('bin_size' number of values for one day
         r_eff = self._get_r_eff(cm=cm, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
 
+        # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for cm in self.data.contact_data.iloc[1:self.n_cm].to_numpy():
             # Transform actual contact matrix data
             cm = self._get_transformed_cm(cm=cm)
@@ -49,17 +69,23 @@ class Simulation:
             # Get solution for the actual time interval
             solution = self._get_solution(contact_mtx=cm,
                                           iv=solution[-1])
+            # Append this solution piece
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
             r_eff = self._get_r_eff(cm=cm, solution=solution)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
+        # Create plots about dynamics and R_eff values
         self._plot_dynamics(sol_plot)
         self._plot_r_eff(r_eff_plot)
 
     def _get_initial_beta(self) -> float:
-        # Get transformed contact matrix
+        """
+        Calculates transmission rate used in the dynamical model based on the reference matrix
+        :return: float, transmission rate for reference matrix
+        """
+        # Get transformed reference matrix
         cm = self._get_transformed_cm(cm=self.data.contact_data.iloc[0].to_numpy())
 
         # Get initial values for susceptibles and population
@@ -67,19 +93,30 @@ class Simulation:
         initial_values = self.model.get_initial_values().reshape(1, -1)
         susceptibles = self.model.get_comp(initial_values, self.model.c_idx["s"])
 
-        # Get initial eigenvalue of the NGM
+        # Get largest eigenvalue of the NGM
         eig_value_0 = self.r0_generator.get_eig_val(contact_mtx=cm,
                                                     population=population,
                                                     susceptibles=susceptibles)[0]
-        # Get initial beta from R0
+        # Get initial beta from baseline R0
         beta = self.r0 / eig_value_0
         return beta
 
     def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
+        """
+        Symmetrizes input contact matrix
+        :param cm: np.ndarray, input contact matrix as a row vector
+        :return: np.ndarray, symmetrized contact matrix in a matrix form
+        """
         return transform_matrix(age_data=self.data.age_data,
                                 matrix=cm.reshape((self.model.n_age, self.model.n_age)))
 
     def _get_r_eff(self, cm: np.ndarray, solution: np.ndarray) -> np.ndarray:
+        """
+        Calculates r_eff values for actual time interval
+        :param cm: np.ndarray, actual contact matrix
+        :param solution: np.ndarray, solution piece of the model for the actual time interval
+        :return: np.ndarray, r_eff values
+        """
         susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
         r_eff = self.parameters["beta"] * self.r0_generator.get_eig_val(contact_mtx=cm,
                                                                         population=self.model.population,
@@ -87,8 +124,15 @@ class Simulation:
         return r_eff
 
     def _get_solution(self, contact_mtx: np.ndarray, iv: np.ndarray = None) -> np.ndarray:
+        """
+        Solves dynamical model for actual time interval (assumes uniformly divided intervals!)
+        :param contact_mtx: np.ndarray, actual contact matrix
+        :param iv: np.ndarray, initial value for odeint, mostly end point of the previous solution piece
+        :return: np.ndarray, solution piece for this interval
+        """
         # Get time interval
         t = np.linspace(0, self.time_plot / self.n_cm, 1 + int(self.time_plot * self.bin_size / self.n_cm))
+        # For first time interval, get initial values from model class method
         if iv is None:
             initial_value = self.model.get_initial_values()
         else:
