@@ -4,7 +4,7 @@ import numpy as np
 class R0Generator:
     states = ["l1", "l2", "ip", "a1", "a2", "a3", "i1", "i2", "i3"]
 
-    def __init__(self, param: dict, n_age: int = 10, n_l: int = 2, n_a: int = 3, n_i: int = 3):
+    def __init__(self, param: dict, debug: bool = False, n_age: int = 10, n_l: int = 2, n_a: int = 3, n_i: int = 3):
         self.parameters = param
         self.n_age = n_age
         self.n_l = n_l
@@ -13,6 +13,9 @@ class R0Generator:
         self.n_states = len(self.states)
         self.i = {self.states[index]: index for index in np.arange(0, self.n_states)}
         self.s_mtx = self.n_age * self.n_states
+        self.debug = debug
+        if self.debug:
+            self.debug_list = []
 
         self.v_inv = None
         self.__get_v()
@@ -21,13 +24,21 @@ class R0Generator:
         # contact matrix needed for effective reproduction number: [c_{j,i} * S_i(t) / N_i(t)]
         contact_matrix = contact_mtx / population.reshape((-1, 1))
         cm_tensor = np.tile(contact_matrix, (susceptibles.shape[0], 1, 1))
-        susc_tensor = susceptibles.reshape((susceptibles.shape[0], 1, susceptibles.shape[1]))
+        susc_tensor = susceptibles.reshape((susceptibles.shape[0], susceptibles.shape[1], 1))
         contact_matrix_tensor = cm_tensor * susc_tensor
         eig_val_eff = []
+        idx = 0
         for cm in contact_matrix_tensor:
             f = self.__get_f(cm)
             eig_val = np.sort(np.linalg.eig(np.dot(f, self.v_inv))[0])
             eig_val_eff.append(float(eig_val[-1]))
+
+            if self.debug:
+                if idx > 9 and float(eig_val[-1]) > 30:
+                    x = float(eig_val[-1])
+                    print(x)
+                    self.debug_list.append(np.max(cm))
+                idx += 1
 
         return np.array(eig_val_eff)
 

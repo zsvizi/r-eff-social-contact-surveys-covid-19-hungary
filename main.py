@@ -17,6 +17,8 @@ class Simulation:
         - creates model and r0generator objects
         - calculates initial transmission rate
         """
+        # Debug variable
+        self.debug = False
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
         self.data = DataLoader()
         # Instantiate dynamical system
@@ -28,14 +30,15 @@ class Simulation:
         self.parameters.update({"susc": np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1])})
 
         # Instantiate R0generator object for calculating effective reproduction numbers
-        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age)
+        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age,
+                                        debug=self.debug)
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
         self.parameters.update({"beta": self._get_initial_beta()})
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
         # Number of contact matrices used for the simulation
-        self.n_cm = 25
+        self.n_cm = 200
         # Number of days, where one contact matrix is valid
         n_days = 1
         # Number of time points plotted
@@ -50,7 +53,7 @@ class Simulation:
         # Transform means: multiply by age distribution as a column,
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
-        cm = self._get_transformed_cm(cm=self.data.contact_data.iloc[0].to_numpy())
+        cm = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
 
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm)
@@ -61,6 +64,8 @@ class Simulation:
         r_eff = self._get_r_eff(cm=cm, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
 
+        # Time variable (mainly for debugging purposes)
+        t = 1
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for cm in self.data.contact_data.iloc[1:self.n_cm].to_numpy():
             # Transform actual contact matrix data
@@ -76,9 +81,17 @@ class Simulation:
             r_eff = self._get_r_eff(cm=cm, solution=solution)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
+            t += 1
+        if self.debug:
+            fig = plt.figure(figsize=(6, 6))
+            plt.plot(range(len(self.r0_generator.debug_list)), np.array(self.r0_generator.debug_list))
+            fig.savefig(os.path.join("./plots", 'debug.pdf'))
+            plt.show()
+
         # Create plots about dynamics and R_eff values
-        self._plot_dynamics(sol_plot)
-        self._plot_r_eff(r_eff_plot, case='1')
+        if not self.debug:
+            self._plot_dynamics(sol_plot)
+        self._plot_r_eff(r_eff_plot, case='2')
 
     def _get_initial_beta(self) -> float:
         """
@@ -86,7 +99,7 @@ class Simulation:
         :return: float, transmission rate for reference matrix
         """
         # Get transformed reference matrix
-        cm = self._get_transformed_cm(cm=self.data.contact_data.iloc[0].to_numpy())
+        cm = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
 
         # Get initial values for susceptibles and population
         population = self.model.population
