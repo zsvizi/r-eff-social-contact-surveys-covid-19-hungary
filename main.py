@@ -78,7 +78,7 @@ class Simulation:
 
         # Create plots about dynamics and R_eff values
         self._plot_dynamics(sol_plot)
-        self._plot_r_eff(r_eff_plot)
+        self._plot_r_eff(r_eff_plot, case='1')
 
     def _get_initial_beta(self) -> float:
         """
@@ -141,12 +141,12 @@ class Simulation:
                                            contact_matrix=contact_mtx)
         return solution
 
-    def _plot_r_eff(self, r_eff: np.ndarray) -> None:
+    def _plot_r_eff(self, r_eff: np.ndarray, case: str) -> None:
         # Plot effective reproduction number
         t = np.linspace(0, self.time_plot, 1 + self.time_plot * self.bin_size)
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, r_eff)
-        fig.savefig(os.path.join("./plots", 'r_eff.pdf'))
+        fig.savefig(os.path.join("./plots", 'r_eff_' + case + '.pdf'))
         plt.show()
 
     def _plot_dynamics(self, sol: np.ndarray) -> None:
