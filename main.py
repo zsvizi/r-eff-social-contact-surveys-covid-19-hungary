@@ -18,7 +18,7 @@ class Simulation:
         - calculates initial transmission rate
         """
         # Debug variable
-        self.debug = False
+        self.debug = True
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
         self.data = DataLoader()
         # Instantiate dynamical system
@@ -53,15 +53,15 @@ class Simulation:
         # Transform means: multiply by age distribution as a column,
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
-        cm = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
+        cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
 
         # Get solution for the first time interval (here, we have the reference matrix)
-        solution = self._get_solution(contact_mtx=cm)
+        solution = self._get_solution(contact_mtx=cm_tr)
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' number of values for one day
-        r_eff = self._get_r_eff(cm=cm, solution=solution)
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
 
         # Time variable (mainly for debugging purposes)
@@ -69,16 +69,16 @@ class Simulation:
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for cm in self.data.contact_data.iloc[1:self.n_cm].to_numpy():
             # Transform actual contact matrix data
-            cm = self._get_transformed_cm(cm=cm)
+            cm_tr = self._get_transformed_cm(cm=cm)
 
             # Get solution for the actual time interval
-            solution = self._get_solution(contact_mtx=cm,
+            solution = self._get_solution(contact_mtx=cm_tr,
                                           iv=solution[-1])
             # Append this solution piece
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            r_eff = self._get_r_eff(cm=cm, solution=solution)
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
             t += 1
