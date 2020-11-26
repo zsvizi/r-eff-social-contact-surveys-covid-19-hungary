@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import block_diag
 
 
 class R0Generator:
@@ -18,6 +19,7 @@ class R0Generator:
             self.debug_list = []
 
         self.v_inv = None
+        self.__get_e()
         self.__get_v()
 
     def get_eig_val(self, contact_mtx: np.array, susceptibles: np.ndarray, population: np.ndarray) -> np.ndarray:
@@ -30,7 +32,9 @@ class R0Generator:
         idx = 0
         for cm in contact_matrix_tensor:
             f = self.__get_f(cm)
-            eig_val = np.sort(np.linalg.eig(np.dot(f, self.v_inv))[0])
+            ngm_large = np.dot(f, self.v_inv)
+            ngm = self.e @ ngm_large @ self.e.T
+            eig_val = np.sort(np.linalg.eig(ngm)[0])
             eig_val_eff.append(float(eig_val[-1]))
 
             if self.debug:
@@ -95,6 +99,13 @@ class R0Generator:
         f[i["l1"]:s_mtx:n_states, i["i3"]:s_mtx:n_states] = inf_s * contact_mtx.T * susc_vec
 
         return f
+
+    def __get_e(self):
+        block = np.zeros((1, self.n_states))
+        block[0] = 1
+        self.e = block
+        for i in range(1, self.n_age):
+            self.e = block_diag(self.e, self.e)
 
     def __idx(self, state: str) -> int:
         return np.arange(self.n_age * self.n_states) % self.n_states == self.i[state]
