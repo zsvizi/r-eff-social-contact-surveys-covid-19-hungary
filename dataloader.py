@@ -10,10 +10,10 @@ PROJECT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 def transform_matrix(age_data, matrix: np.ndarray):
-    age_distribution = age_data.reshape((-1, 1))
+    age_distribution = age_data.reshape((1, -1))
 
     matrix_1 = matrix * age_distribution
-    output = (matrix_1 + matrix_1.T) / (2 * age_distribution)
+    output = (matrix_1 + matrix_1.T) / (2 * age_distribution.reshape((-1, 1)))
     return output
 
 
