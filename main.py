@@ -3,6 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
@@ -38,7 +39,7 @@ class Simulation:
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
         # Number of contact matrices used for the simulation
-        self.n_cm = 200
+        self.n_cm = 210
         # Number of days, where one contact matrix is valid
         n_days = 1
         # Number of time points plotted
@@ -85,6 +86,8 @@ class Simulation:
         if self.debug:
             fig = plt.figure(figsize=(6, 6))
             plt.plot(range(len(self.r0_generator.debug_list)), np.array(self.r0_generator.debug_list))
+            self._generate_date(fig)
+
             fig.savefig(os.path.join("./plots", 'debug.pdf'))
             plt.show()
 
@@ -159,6 +162,7 @@ class Simulation:
         t = np.linspace(0, self.time_plot, 1 + self.time_plot * self.bin_size)
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, r_eff)
+        self._generate_date(fig)
         fig.savefig(os.path.join("./plots", 'r_eff_' + case + '.pdf'))
         plt.show()
 
@@ -167,6 +171,7 @@ class Simulation:
         t = np.linspace(0, self.time_plot, self.time_plot * self.bin_size)
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, np.diff(self.model.get_cumulative(sol)))
+        self._generate_date(fig)
         fig.savefig(os.path.join("./plots", 'daily_incidence.pdf'))
         plt.show()
 
@@ -174,8 +179,20 @@ class Simulation:
         t = np.linspace(0, self.time_plot, 1 + self.time_plot * self.bin_size)
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, self.model.get_cumulative(sol))
+        self._generate_date(fig)
         fig.savefig(os.path.join("./plots", 'cumulative.pdf'))
         plt.show()
+
+    def _generate_date(self, fig):
+        date_bin = 14
+        list_of_dates = np.array([
+            d.strftime('%m-%d') for d in pd.date_range(start='2020-03-31', periods=self.n_cm + 1)
+        ])
+        for ax in fig.axes:
+            plt.sca(ax)
+            plt.xticks(np.arange(len(list_of_dates[::date_bin])) * date_bin, list_of_dates[::date_bin])
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(30)
 
 
 if __name__ == '__main__':
