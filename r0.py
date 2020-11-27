@@ -101,11 +101,11 @@ class R0Generator:
         return f
 
     def __get_e(self):
-        block = np.zeros((1, self.n_states))
+        block = np.zeros(self.n_states,)
         block[0] = 1
         self.e = block
         for i in range(1, self.n_age):
-            self.e = block_diag(self.e, self.e)
+            self.e = block_diag(self.e, block)
 
     def __idx(self, state: str) -> int:
         return np.arange(self.n_age * self.n_states) % self.n_states == self.i[state]
