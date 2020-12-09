@@ -20,11 +20,14 @@ class Simulation:
         """
         # Debug variable
         self.debug = True
+
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
         self.data = DataLoader()
+
         # Instantiate dynamical system
         self.model = RostModelHungary(model_data=self.data)
 
+        # Baseline R0 for uncontrolled epidemic
         self.r0 = 2.2
         # Get model parameters from DataLoader and append susceptibility age vector to the dictionary
         self.parameters = self.data.model_parameters_data
@@ -51,7 +54,7 @@ class Simulation:
         :return: None
         """
         # Get transformed contact matrix (here, we have the reference matrix)
-        # Transform means: multiply by age distribution as a column,
+        # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
         cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
@@ -61,7 +64,7 @@ class Simulation:
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
-        # R_eff is calculated at each points for which odeint gives values ('bin_size' number of values for one day
+        # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
 
