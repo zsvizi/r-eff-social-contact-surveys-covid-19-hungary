@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 
@@ -21,7 +22,7 @@ class DataLoader:
     def __init__(self):
         self._model_parameters_data_file = os.path.join(PROJECT_PATH, "data", "model_parameters.json")
         self._contact_data_file = os.path.join(PROJECT_PATH,
-                                               "contact_matrix", "results", "dynmatrix_step_1d_window_7d.csv")
+                                               "contact_matrix", "results", "dynmatrix_step_1d_window_7d_v4_avg.csv")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
@@ -57,6 +58,7 @@ class DataLoader:
         data = pd.read_csv(self._contact_data_file, delimiter=',|:',
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
+        data.index = [datetime.utcfromtimestamp(int(str(x).split('-')[0])).strftime('%Y-%m-%d') for x in data.index]
         self.contact_data = data
 
     def _get_reference_contact_mtx(self):
