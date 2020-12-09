@@ -1,12 +1,12 @@
 import copy
+import datetime
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
+from plotter import Plotter
 from r0 import R0Generator
 
 
@@ -41,12 +41,11 @@ class Simulation:
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
-        # Number of contact matrices used for the simulation
-        self.n_cm = 210
-        # Number of days, where one contact matrix is valid
-        n_days = 1
         # Number of time points plotted
-        self.time_plot = n_days * self.n_cm
+        self.time_plot = 1 + len(self.data.contact_data.index)
+        # Start date (date for reference contact matrix)
+        self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0], '%Y-%m-%d') \
+            - datetime.timedelta(days=1)
 
     def run(self) -> None:
         """
@@ -68,10 +67,14 @@ class Simulation:
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
 
-        # Time variable (mainly for debugging purposes)
-        t = 1
+        # Variables for handling missing dates
+        previous_day = self.start_date
+        no_missing_dates = 0
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
-        for cm in self.data.contact_data.iloc[1:self.n_cm].to_numpy():
+        for date in self.data.contact_data.index:
+            # Get contact matrix for current date
+            cm = self.data.contact_data.loc[date].to_numpy()
+
             # Transform actual contact matrix data
             cm_tr = self._get_transformed_cm(cm=cm)
 
@@ -85,19 +88,32 @@ class Simulation:
             r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
-            t += 1
+            # Handle missing data
+            if datetime.datetime.strptime(date, '%Y-%m-%d') - datetime.timedelta(days=1) != previous_day:
+                diff_days = (datetime.datetime.strptime(date, '%Y-%m-%d') - previous_day).days
+                # Append zeros for missing dates
+                for _ in range(1, diff_days):
+                    no_missing_dates += 1
+                    sol_plot = np.append(sol_plot, np.zeros(solution[1:].shape), axis=0)
+                    r_eff_plot = np.append(r_eff_plot, np.zeros(r_eff[1:].shape), axis=0)
+                    self.r0_generator.debug_list.append(-1)
+            # Update previous day to actual one
+            previous_day = datetime.datetime.strptime(date, '%Y-%m-%d')
+
+        # Correct self.time_plot by the number of missing dates
+        self.time_plot += no_missing_dates
+
+        # Instantiate Plotter object
+        plotter = Plotter(sim_obj=self)
+        # Generate plot about dominant eigenvalues (for debugging purposes)
         if self.debug:
-            fig = plt.figure(figsize=(6, 6))
-            plt.plot(range(len(self.r0_generator.debug_list)), np.array(self.r0_generator.debug_list))
-            self._generate_date(fig)
+            plotter.plot_dominant_eigenvalues()
 
-            fig.savefig(os.path.join("./plots", 'debug.pdf'))
-            plt.show()
-
-        # Create plots about dynamics and R_eff values
+        # Create plots about model dynamics
         if not self.debug:
-            self._plot_dynamics(sol_plot)
-        self._plot_r_eff(r_eff_plot, case='2')
+            plotter.plot_dynamics(sol=sol_plot)
+        # Create plots about R_eff values
+        plotter.plot_r_eff(r_eff=r_eff_plot)
 
     def _get_initial_beta(self) -> float:
         """
@@ -150,7 +166,7 @@ class Simulation:
         :return: np.ndarray, solution piece for this interval
         """
         # Get time interval
-        t = np.linspace(0, self.time_plot / self.n_cm, 1 + int(self.time_plot * self.bin_size / self.n_cm))
+        t = np.linspace(0, 1, 1 + self.bin_size)
         # For first time interval, get initial values from model class method
         if iv is None:
             initial_value = self.model.get_initial_values()
@@ -159,43 +175,6 @@ class Simulation:
         solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
                                            contact_matrix=contact_mtx)
         return solution
-
-    def _plot_r_eff(self, r_eff: np.ndarray, case: str) -> None:
-        # Plot effective reproduction number
-        t = np.linspace(0, self.time_plot, 1 + self.time_plot * self.bin_size)
-        fig = plt.figure(figsize=(6, 6))
-        plt.plot(t, r_eff)
-        self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'r_eff_' + case + '.pdf'))
-        plt.show()
-
-    def _plot_dynamics(self, sol: np.ndarray) -> None:
-        # Plot daily incidence
-        t = np.linspace(0, self.time_plot, self.time_plot * self.bin_size)
-        fig = plt.figure(figsize=(6, 6))
-        plt.plot(t, np.diff(self.model.get_cumulative(sol)))
-        self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'daily_incidence.pdf'))
-        plt.show()
-
-        # Plot cumulative cases
-        t = np.linspace(0, self.time_plot, 1 + self.time_plot * self.bin_size)
-        fig = plt.figure(figsize=(6, 6))
-        plt.plot(t, self.model.get_cumulative(sol))
-        self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'cumulative.pdf'))
-        plt.show()
-
-    def _generate_date(self, fig):
-        date_bin = 14
-        list_of_dates = np.array([
-            d.strftime('%m-%d') for d in pd.date_range(start='2020-03-31', periods=self.n_cm + 1)
-        ])
-        for ax in fig.axes:
-            plt.sca(ax)
-            plt.xticks(np.arange(len(list_of_dates[::date_bin])) * date_bin, list_of_dates[::date_bin])
-            for tick in ax.get_xticklabels():
-                tick.set_rotation(30)
 
 
 if __name__ == '__main__':
