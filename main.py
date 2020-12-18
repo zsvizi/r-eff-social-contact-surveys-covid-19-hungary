@@ -41,11 +41,14 @@ class Simulation:
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
-        # Number of time points plotted
+        # Time step in contact data
+        self.time_step = 1
+        # Number of contact matrices used in the plotting
         self.time_plot = 1 + len(self.data.contact_data.index)
         # Start date (date for reference contact matrix)
+        self.start_date_delta = 1
         self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0], '%Y-%m-%d') \
-            - datetime.timedelta(days=1)
+            - datetime.timedelta(days=self.start_date_delta)
 
     def run(self) -> None:
         """
@@ -59,7 +62,7 @@ class Simulation:
         cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
 
         # Get solution for the first time interval (here, we have the reference matrix)
-        solution = self._get_solution(contact_mtx=cm_tr)
+        solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
@@ -68,7 +71,7 @@ class Simulation:
         r_eff_plot = copy.deepcopy(r_eff)
 
         # Variables for handling missing dates
-        previous_day = self.start_date
+        previous_day = self.start_date + datetime.timedelta(days=self.start_date_delta - self.time_step)
         no_missing_dates = 0
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in self.data.contact_data.index:
@@ -89,7 +92,7 @@ class Simulation:
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
             # Handle missing data
-            if datetime.datetime.strptime(date, '%Y-%m-%d') - datetime.timedelta(days=1) != previous_day:
+            if datetime.datetime.strptime(date, '%Y-%m-%d') - datetime.timedelta(days=self.time_step) != previous_day:
                 diff_days = (datetime.datetime.strptime(date, '%Y-%m-%d') - previous_day).days
                 # Append zeros for missing dates
                 for _ in range(1, diff_days):
@@ -158,15 +161,19 @@ class Simulation:
                                                                         susceptibles=susceptibles)
         return r_eff
 
-    def _get_solution(self, contact_mtx: np.ndarray, iv: np.ndarray = None) -> np.ndarray:
+    def _get_solution(self, contact_mtx: np.ndarray, iv: np.ndarray = None, is_start: bool = False) -> np.ndarray:
         """
         Solves dynamical model for actual time interval (assumes uniformly divided intervals!)
         :param contact_mtx: np.ndarray, actual contact matrix
         :param iv: np.ndarray, initial value for odeint, mostly end point of the previous solution piece
         :return: np.ndarray, solution piece for this interval
         """
+        if is_start:
+            time_step = 1
+        else:
+            time_step = self.time_step
         # Get time interval
-        t = np.linspace(0, 1, 1 + self.bin_size)
+        t = np.linspace(0, time_step, 1 + time_step * self.bin_size)
         # For first time interval, get initial values from model class method
         if iv is None:
             initial_value = self.model.get_initial_values()

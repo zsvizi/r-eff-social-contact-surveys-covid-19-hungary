@@ -17,7 +17,11 @@ class Plotter:
         :return: None
         """
         # Plot effective reproduction number
-        t = np.linspace(0, self.sim_obj.time_plot, 1 + self.sim_obj.time_plot * self.sim_obj.bin_size)
+        t0 = np.linspace(0, self.sim_obj.start_date_delta, 1 + self.sim_obj.start_date_delta * self.sim_obj.bin_size)
+        t1 = np.linspace(self.sim_obj.start_date_delta,
+                         (self.sim_obj.time_plot - 1) * self.sim_obj.time_step + self.sim_obj.start_date_delta,
+                         1 + ((self.sim_obj.time_plot - 1) * self.sim_obj.time_step) * self.sim_obj.bin_size)
+        t = np.append(t0, t1[1:], axis=0)
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, r_eff)
         self._generate_date(fig)
@@ -67,7 +71,7 @@ class Plotter:
         date_bin = 14
         list_of_dates = np.array([
             d.strftime('%m-%d') for d in pd.date_range(start=self.sim_obj.start_date,
-                                                       periods=self.sim_obj.time_plot + 1)
+                                                       periods=self.sim_obj.time_plot * self.sim_obj.time_step + 1)
         ])
         for ax in fig.axes:
             plt.sca(ax)
