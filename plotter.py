@@ -8,6 +8,7 @@ import pandas as pd
 class Plotter:
     def __init__(self, sim_obj):
         self.sim_obj = sim_obj
+        self.filename_base = self.sim_obj.data.get_contact_data_filename()
 
     def plot_r_eff(self, r_eff: np.ndarray) -> None:
         """
@@ -20,7 +21,7 @@ class Plotter:
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, r_eff)
         self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'r_eff.pdf'))
+        fig.savefig(os.path.join("./plots", self.filename_base + '_r_eff.pdf'))
         plt.show()
 
     def plot_dynamics(self, sol: np.ndarray) -> None:
@@ -34,7 +35,7 @@ class Plotter:
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, np.diff(self.sim_obj.model.get_cumulative(sol)))
         self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'daily_incidence.pdf'))
+        fig.savefig(os.path.join("./plots", self.filename_base + '_daily_incidence.pdf'))
         plt.show()
 
         # Plot cumulative cases
@@ -42,7 +43,7 @@ class Plotter:
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, self.sim_obj.model.get_cumulative(sol))
         self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'cumulative.pdf'))
+        fig.savefig(os.path.join("./plots", self.filename_base + '_cumulative.pdf'))
         plt.show()
 
     def plot_dominant_eigenvalues(self) -> None:
@@ -54,7 +55,7 @@ class Plotter:
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, np.array(self.sim_obj.r0_generator.debug_list))
         self._generate_date(fig)
-        fig.savefig(os.path.join("./plots", 'debug.pdf'))
+        fig.savefig(os.path.join("./plots", self.filename_base + '_debug.pdf'))
         plt.show()
 
     def _generate_date(self, fig):
