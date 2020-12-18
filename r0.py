@@ -38,11 +38,11 @@ class R0Generator:
             eig_val_eff.append(float(eig_val[-1]))
 
             if self.debug:
-                if idx > 9:
+                if (idx + 1) % 11 == 0:
                     dom_eig_val = float(eig_val[-1])
-                    if dom_eig_val > 20:
-                        print("Too large eigenvalue:", dom_eig_val)
-                    self.debug_list.append(np.max(cm))
+                    if np.max(cm) > 6:
+                        print("Large eigenvalue:", dom_eig_val)
+                    self.debug_list.append(dom_eig_val)
                 idx += 1
 
         return np.array(eig_val_eff)
