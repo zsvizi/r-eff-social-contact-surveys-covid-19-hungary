@@ -18,8 +18,18 @@ class Simulation:
         - creates model and r0generator objects
         - calculates initial transmission rate
         """
+        # ------------- USER-DEFINED PARAMETERS -------------
         # Debug variable
         self.debug = True
+        # Time step in contact data
+        self.time_step = 1
+        # Baseline R0 for uncontrolled epidemic
+        self.r0 = 2.2
+        # Variable for clarifying contact matrix for baseline beta calculation
+        # - None: reference matrix from reference_contact_data
+        # - specified tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
+        self.baseline_cm_date = None  # ('2020-08-30', '2020-09-06')
+        # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
         self.data = DataLoader()
@@ -27,8 +37,6 @@ class Simulation:
         # Instantiate dynamical system
         self.model = RostModelHungary(model_data=self.data)
 
-        # Baseline R0 for uncontrolled epidemic
-        self.r0 = 2.2
         # Get model parameters from DataLoader and append susceptibility age vector to the dictionary
         self.parameters = self.data.model_parameters_data
         self.parameters.update({"susc": np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1])})
@@ -41,13 +49,11 @@ class Simulation:
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
-        # Time step in contact data
-        self.time_step = 1
         # Number of contact matrices used in the plotting
         self.time_plot = 1 + len(self.data.contact_data.index)
         # Start date (date for reference contact matrix)
         self.start_date_delta = 1
-        self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0], '%Y-%m-%d') \
+        self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0][0], '%Y-%m-%d') \
             - datetime.timedelta(days=self.start_date_delta)
 
     def run(self) -> None:
@@ -92,8 +98,10 @@ class Simulation:
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
             # Handle missing data
-            if datetime.datetime.strptime(date, '%Y-%m-%d') - datetime.timedelta(days=self.time_step) != previous_day:
-                diff_days = (datetime.datetime.strptime(date, '%Y-%m-%d') - previous_day).days
+            # In the following, we use date[0], since contact matrices are indexed by tuple (start_date, end_date)
+            one_day_back = datetime.datetime.strptime(date[0], '%Y-%m-%d') - datetime.timedelta(days=self.time_step)
+            if one_day_back != previous_day:
+                diff_days = (datetime.datetime.strptime(date[0], '%Y-%m-%d') - previous_day).days
                 # Append zeros for missing dates
                 for _ in range(1, diff_days):
                     no_missing_dates += 1
@@ -101,7 +109,7 @@ class Simulation:
                     r_eff_plot = np.append(r_eff_plot, np.zeros(r_eff[1:].shape), axis=0)
                     self.r0_generator.debug_list.append(-1)
             # Update previous day to actual one
-            previous_day = datetime.datetime.strptime(date, '%Y-%m-%d')
+            previous_day = datetime.datetime.strptime(date[0], '%Y-%m-%d')
 
         # Correct self.time_plot by the number of missing dates
         self.time_plot += no_missing_dates
@@ -124,7 +132,7 @@ class Simulation:
         :return: float, transmission rate for reference matrix
         """
         # Get transformed reference matrix
-        cm = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
+        cm = self._get_transformed_cm(cm=self._get_baseline_cm())
 
         # Get initial values for susceptibles and population
         population = self.model.population
@@ -138,6 +146,17 @@ class Simulation:
         # Get initial beta from baseline R0
         beta = self.r0 / eig_value_0
         return beta
+
+    def _get_baseline_cm(self) -> np.ndarray:
+        """
+        Returns contact matrix for baseline beta calculation based on user-defined date
+        :return: np.ndarray contact matrix from data
+        """
+        if self.baseline_cm_date is None:
+            baseline_cm = self.data.reference_contact_data.iloc[0].to_numpy()
+        else:
+            baseline_cm = self.data.contact_data.loc[self.baseline_cm_date].to_numpy()
+        return baseline_cm
 
     def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
         """

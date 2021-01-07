@@ -61,7 +61,13 @@ class DataLoader:
         data = pd.read_csv(self._contact_data_file, delimiter=',|:',
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
-        data.index = [datetime.utcfromtimestamp(int(str(x).split('-')[0])).strftime('%Y-%m-%d') for x in data.index]
+        def start_date(x):
+            return datetime.utcfromtimestamp(int(str(x).split('-')[0])).strftime('%Y-%m-%d')
+
+        def end_date(x):
+            return datetime.utcfromtimestamp(int(str(x).split('-')[1])).strftime('%Y-%m-%d')
+
+        data.index = pd.MultiIndex.from_tuples([(start_date(x), end_date(x)) for x in data.index])
         self.contact_data = data
 
     def _get_reference_contact_mtx(self):
