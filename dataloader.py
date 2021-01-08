@@ -22,7 +22,7 @@ class DataLoader:
     def __init__(self):
         self._model_parameters_data_file = os.path.join(PROJECT_PATH, "data", "model_parameters.json")
         self._contact_data_file = os.path.join(PROJECT_PATH,
-                                               "contact_matrix", "results", "dynmatrix_step_1d_window_7d_v4_avg.csv")
+                                               "contact_matrix", "results", "dynmatrix_step_1d_window_7d_v6_avg.csv")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
@@ -32,6 +32,7 @@ class DataLoader:
         self._get_model_parameters_data()
         self._get_contact_mtx()
         self._get_reference_contact_mtx()
+        self._get_contact_num_data()
 
     def get_contact_data_filename(self):
         return self._contact_data_file.split('/')[-1].split('.')[0]
@@ -75,3 +76,11 @@ class DataLoader:
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
         self.reference_contact_data = data
+
+    def _get_contact_num_data(self):
+        data = pd.read_csv(os.path.join(PROJECT_PATH,
+                                        "contact_matrix", "results",
+                                        'dynmatrix_step_1d_window_7d_v6_contactnum.csv'),
+                           header=None,
+                           sep="-|:|,").rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family'}, axis=1)
+        self.contact_num_data = data
