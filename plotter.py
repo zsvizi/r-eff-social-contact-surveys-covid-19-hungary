@@ -17,13 +17,16 @@ class Plotter:
         :return: None
         """
         # Plot effective reproduction number
-        t0 = np.linspace(0, self.sim_obj.start_date_delta, 1 + self.sim_obj.start_date_delta * self.sim_obj.bin_size)
+        b_s = self.sim_obj.bin_size
+        t0 = np.linspace(0, self.sim_obj.start_date_delta, 1 + self.sim_obj.start_date_delta * b_s)
         t1 = np.linspace(self.sim_obj.start_date_delta,
                          (self.sim_obj.time_plot - 1) * self.sim_obj.time_step + self.sim_obj.start_date_delta,
-                         1 + ((self.sim_obj.time_plot - 1) * self.sim_obj.time_step) * self.sim_obj.bin_size)
+                         1 + ((self.sim_obj.time_plot - 1) * self.sim_obj.time_step) * b_s)
         t = np.append(t0, t1[1:], axis=0)
         fig = plt.figure(figsize=(6, 6))
         plt.plot(t, r_eff)
+        plt.plot(t[b_s:-b_s:b_s], self.sim_obj.data.contact_num_data["outside"].to_numpy() +
+                 self.sim_obj.data.contact_num_data["family"].to_numpy())
         self._generate_date(fig)
         fig.savefig(os.path.join("./plots", self.filename_base + '_r_eff.pdf'))
         plt.show()
