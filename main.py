@@ -28,7 +28,7 @@ class Simulation:
         # Variable for clarifying contact matrix for baseline beta calculation
         # - None: reference matrix from reference_contact_data
         # - specified tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
-        self.baseline_cm_date = None  # ('2020-08-30', '2020-09-06')
+        self.baseline_cm_date = ('2020-08-30', '2020-09-06')  # None / ('2020-08-30', '2020-09-06')
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -94,7 +94,7 @@ class Simulation:
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
             # Handle missing data
@@ -167,17 +167,19 @@ class Simulation:
         return transform_matrix(age_data=self.data.age_data,
                                 matrix=cm.reshape((self.model.n_age, self.model.n_age)))
 
-    def _get_r_eff(self, cm: np.ndarray, solution: np.ndarray) -> np.ndarray:
+    def _get_r_eff(self, cm: np.ndarray, solution: np.ndarray, date: str = None) -> np.ndarray:
         """
         Calculates r_eff values for actual time interval
         :param cm: np.ndarray, actual contact matrix
         :param solution: np.ndarray, solution piece of the model for the actual time interval
+        :param date: str date of calculation
         :return: np.ndarray, r_eff values
         """
         susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
         r_eff = self.parameters["beta"] * self.r0_generator.get_eig_val(contact_mtx=cm,
                                                                         population=self.model.population,
-                                                                        susceptibles=susceptibles)
+                                                                        susceptibles=susceptibles,
+                                                                        date=date)
         return r_eff
 
     def _get_solution(self, contact_mtx: np.ndarray, iv: np.ndarray = None, is_start: bool = False) -> np.ndarray:

@@ -22,7 +22,11 @@ class R0Generator:
         self.__get_e()
         self.__get_v()
 
-    def get_eig_val(self, contact_mtx: np.array, susceptibles: np.ndarray, population: np.ndarray) -> np.ndarray:
+    def get_eig_val(self, contact_mtx: np.array,
+                    susceptibles: np.ndarray, population: np.ndarray,
+                    date: str = None) -> np.ndarray:
+        # boolean for debugging purposes
+        is_effective_calculated = False
         # contact matrix needed for effective reproduction number: [c_{j,i} * S_i(t) / N_i(t)]
         contact_matrix = contact_mtx / population.reshape((-1, 1))
         cm_tensor = np.tile(contact_matrix, (susceptibles.shape[0], 1, 1))
@@ -31,7 +35,8 @@ class R0Generator:
         eig_val_eff = []
         idx = 0
         for cm in contact_matrix_tensor:
-            f = self.__get_f(cm)
+            contact_matrix = cm if is_effective_calculated else contact_mtx
+            f = self.__get_f(contact_matrix)
             ngm_large = np.dot(f, self.v_inv)
             ngm = self.e @ ngm_large @ self.e.T
             eig_val = np.sort(np.linalg.eig(ngm)[0])
@@ -40,8 +45,8 @@ class R0Generator:
             if self.debug:
                 if (idx + 1) % 11 == 0:
                     dom_eig_val = float(eig_val[-1])
-                    if np.max(cm) > 6:
-                        print("Large eigenvalue:", dom_eig_val)
+                    if np.max(contact_matrix) > 6:
+                        print("Large eigenvalue at", date[0], "=", dom_eig_val)
                     self.debug_list.append(dom_eig_val)
                 idx += 1
 
