@@ -27,6 +27,8 @@ class DataLoader:
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
         self._age_data_file = os.path.join(PROJECT_PATH, "data", "age_distribution.xls")
+        self._contact_num_data_file = os.path.join(PROJECT_PATH, "contact_matrix", "results",
+                                                   'dynmatrix_step_1d_window_7d_v6_contactnum.csv')
 
         self._get_age_data()
         self._get_model_parameters_data()
@@ -78,9 +80,7 @@ class DataLoader:
         self.reference_contact_data = data
 
     def _get_contact_num_data(self):
-        data = pd.read_csv(os.path.join(PROJECT_PATH,
-                                        "contact_matrix", "results",
-                                        'dynmatrix_step_1d_window_7d_v6_contactnum.csv'),
+        data = pd.read_csv(self._contact_num_data_file,
                            header=None,
                            sep="-|:|,").rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family'}, axis=1)
         self.contact_num_data = data
