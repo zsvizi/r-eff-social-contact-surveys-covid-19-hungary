@@ -65,7 +65,7 @@ class Plotter:
         fig.savefig(os.path.join("./plots", self.filename_base + '_debug.pdf'))
         plt.show()
 
-    def _generate_date(self, fig):
+    def _generate_date(self, fig) -> None:
         """
         Generate dates along x axis on the input figure object
         :param fig: figure object
