@@ -20,21 +20,29 @@ def transform_matrix(age_data, matrix: np.ndarray):
 
 class DataLoader:
     def __init__(self):
-        self._model_parameters_data_file = os.path.join(PROJECT_PATH, "data", "model_parameters.json")
+        self._model_parameters_data_file = os.path.join(PROJECT_PATH,
+                                                        "data", "model_parameters.json")
         self._contact_data_file = os.path.join(PROJECT_PATH,
-                                               "contact_matrix", "results", "dynmatrix_step_1d_window_7d_v6_avg.csv")
+                                               "contact_matrix", "results",
+                                               "dynmatrix_step_1d_window_7d_v6_avg.csv")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
-        self._age_data_file = os.path.join(PROJECT_PATH, "data", "age_distribution.xls")
-        self._contact_num_data_file = os.path.join(PROJECT_PATH, "contact_matrix", "results",
-                                                   'dynmatrix_step_1d_window_7d_v6_contactnum.csv')
+        self._representative_contact_file = os.path.join(PROJECT_PATH,
+                                                         "contact_matrix", "results",
+                                                         "Repr_SumWDKFMtx_weightnorm.csv")
+        self._age_data_file = os.path.join(PROJECT_PATH,
+                                           "data", "age_distribution.xls")
+        self._contact_num_data_file = os.path.join(PROJECT_PATH,
+                                                   "contact_matrix", "results",
+                                                   "dynmatrix_step_1d_window_7d_v6_contactnum.csv")
 
         self._get_age_data()
         self._get_model_parameters_data()
         self._get_contact_mtx()
         self._get_reference_contact_mtx()
         self._get_contact_num_data()
+        self._get_representative_contact_mtx()
 
     def get_contact_data_filename(self):
         return self._contact_data_file.split('/')[-1].split('.')[0]
@@ -78,6 +86,12 @@ class DataLoader:
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
         self.reference_contact_data = data
+
+    def _get_representative_contact_mtx(self):
+        data = pd.read_csv(self._representative_contact_file, delimiter=',|:',
+                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
+        data.fillna(0, inplace=True)
+        self.representative_contact_data = data
 
     def _get_contact_num_data(self):
         data = pd.read_csv(self._contact_num_data_file,
