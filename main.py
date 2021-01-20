@@ -29,6 +29,8 @@ class Simulation:
         # - None: reference matrix from reference_contact_data
         # - specified tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
         self.baseline_cm_date = ('2020-08-30', '2020-09-06')  # None / ('2020-08-30', '2020-09-06')
+        # Are effective R values calculated?
+        self.is_r_eff_calc = False
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -126,6 +128,20 @@ class Simulation:
         # Create plots about R_eff values
         plotter.plot_r_eff(r_eff=r_eff_plot)
 
+        # Calculate eigenvalues for matrices from representative query
+        print("-------- Representative matrices --------")
+        print("Baseline beta:", self.parameters["beta"])
+        print("For matrix BASELINE eig. val =", self.r0 / self.parameters["beta"],
+              "-> baseline r0 =", self.r0)
+        print("-----------------------------------------")
+        repi_cm_df = self.data.representative_contact_data
+        for indx in repi_cm_df.index:
+            self.is_r_eff_calc = False
+            cm = repi_cm_df.loc[indx].to_numpy()
+            cm_tr = self._get_transformed_cm(cm=cm)
+            eig_val = self._get_r_eff(cm=cm_tr, solution=solution) / self.parameters["beta"]
+            print("For matrix", indx, "eig. val =", eig_val[0], "-> r0 =", eig_val[0] * self.parameters["beta"])
+
     def _get_initial_beta(self) -> float:
         """
         Calculates transmission rate used in the dynamical model based on the reference matrix
@@ -179,7 +195,8 @@ class Simulation:
         r_eff = self.parameters["beta"] * self.r0_generator.get_eig_val(contact_mtx=cm,
                                                                         population=self.model.population,
                                                                         susceptibles=susceptibles,
-                                                                        date=date)
+                                                                        date=date,
+                                                                        is_effective_calculated=self.is_r_eff_calc)
         return r_eff
 
     def _get_solution(self, contact_mtx: np.ndarray, iv: np.ndarray = None, is_start: bool = False) -> np.ndarray:
