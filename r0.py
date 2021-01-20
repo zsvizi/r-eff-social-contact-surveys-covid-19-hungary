@@ -24,9 +24,8 @@ class R0Generator:
 
     def get_eig_val(self, contact_mtx: np.array,
                     susceptibles: np.ndarray, population: np.ndarray,
-                    date: str = None) -> np.ndarray:
-        # boolean for debugging purposes
-        is_effective_calculated = False
+                    date: str = None,
+                    is_effective_calculated: bool = True) -> np.ndarray:
         # contact matrix needed for effective reproduction number: [c_{j,i} * S_i(t) / N_i(t)]
         contact_matrix = contact_mtx / population.reshape((-1, 1))
         cm_tensor = np.tile(contact_matrix, (susceptibles.shape[0], 1, 1))
@@ -39,10 +38,10 @@ class R0Generator:
             f = self.__get_f(contact_matrix)
             ngm_large = np.dot(f, self.v_inv)
             ngm = self.e @ ngm_large @ self.e.T
-            eig_val = np.sort(np.linalg.eig(ngm)[0])
-            eig_val_eff.append(float(eig_val[-1]))
+            eig_val = np.sort(list(map(lambda x: np.abs(x), np.linalg.eig(ngm)[0])))
+            eig_val_eff.append(eig_val[-1])
 
-            if self.debug:
+            if self.debug and date is not None:
                 if (idx + 1) % 11 == 0:
                     dom_eig_val = float(eig_val[-1])
                     if np.max(contact_matrix) > 6:
