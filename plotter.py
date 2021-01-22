@@ -1,3 +1,4 @@
+import copy
 import os
 
 import matplotlib.pyplot as plt
@@ -10,9 +11,10 @@ class Plotter:
         self.sim_obj = sim_obj
         self.filename_base = self.sim_obj.data.get_contact_data_filename()
 
-    def plot_r_eff(self, r_eff: np.ndarray) -> None:
+    def plot_r_eff(self, r_eff: np.ndarray, r0_list: list = None) -> None:
         """
         Creates R_eff plot
+        :param r0_list: list, monthly r0 values from other questionnaire
         :param r_eff: np.ndarray, calculated effective reproduction numbers
         :return: None
         """
@@ -27,6 +29,15 @@ class Plotter:
         plt.plot(t, r_eff)
         plt.plot(t[b_s:-b_s:b_s], self.sim_obj.data.contact_num_data["outside"].to_numpy() +
                  self.sim_obj.data.contact_num_data["family"].to_numpy())
+
+        if r0_list is not None:
+            r0_list_2 = copy.deepcopy(r0_list[0:4])
+            r0_list_2.append(r0_list[3])  # missing data: July
+            r0_list_2.extend(r0_list[4:-2])
+            days_in_march = 8.0
+            month_starts_from_april = days_in_march + np.cumsum(np.array([0, 30, 31, 30, 31, 31, 30, 31]))
+            plt.step(month_starts_from_april, r0_list_2)
+
         self._generate_date(fig)
         fig.savefig(os.path.join("./plots", self.filename_base + '_r_eff.pdf'))
         plt.show()

@@ -122,12 +122,6 @@ class Simulation:
         if self.debug:
             plotter.plot_dominant_eigenvalues()
 
-        # Create plots about model dynamics
-        if not self.debug:
-            plotter.plot_dynamics(sol=sol_plot)
-        # Create plots about R_eff values
-        plotter.plot_r_eff(r_eff=r_eff_plot)
-
         # Calculate eigenvalues for matrices from representative query
         print("-------- Representative matrices --------")
         print("Baseline beta:", self.parameters["beta"])
@@ -135,12 +129,20 @@ class Simulation:
               "-> baseline r0 =", self.r0)
         print("-----------------------------------------")
         repi_cm_df = self.data.representative_contact_data
+        r0_list = []
         for indx in repi_cm_df.index:
             self.is_r_eff_calc = False
             cm = repi_cm_df.loc[indx].to_numpy()
             cm_tr = self._get_transformed_cm(cm=cm)
             eig_val = self._get_r_eff(cm=cm_tr, solution=solution) / self.parameters["beta"]
             print("For matrix", indx, "eig. val =", eig_val[0], "-> r0 =", eig_val[0] * self.parameters["beta"])
+            r0_list.append(eig_val[0] * self.parameters["beta"])
+
+        # Create plots about model dynamics
+        if not self.debug:
+            plotter.plot_dynamics(sol=sol_plot)
+        # Create plots about R_eff values
+        plotter.plot_r_eff(r_eff=r_eff_plot, r0_list=r0_list)
 
     def _get_initial_beta(self) -> float:
         """
