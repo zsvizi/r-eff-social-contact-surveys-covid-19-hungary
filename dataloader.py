@@ -19,12 +19,19 @@ def transform_matrix(age_data, matrix: np.ndarray):
 
 
 class DataLoader:
-    def __init__(self):
+    def __init__(self, **config):
         self._model_parameters_data_file = os.path.join(PROJECT_PATH,
                                                         "data", "model_parameters.json")
-        self._contact_data_file = os.path.join(PROJECT_PATH,
-                                               "contact_matrix", "results",
-                                               "dynmatrix_step_1d_window_7d_v6_avg.csv")
+
+        if "contact_data_file" in config:
+            self._contact_data_file = os.path.join(PROJECT_PATH,
+                                    "contact_matrix", "results",
+                                    config.get("contact_data_file"))
+        else:
+            self._contact_data_file = os.path.join(PROJECT_PATH,
+                                                "contact_matrix", "results",
+                                                "dynmatrix_step_1d_window_7d_v6_avg.csv")
+
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
@@ -33,7 +40,13 @@ class DataLoader:
                                                          "Repr_SumWDKFMtx_weightnorm.csv")
         self._age_data_file = os.path.join(PROJECT_PATH,
                                            "data", "age_distribution.xls")
-        self._contact_num_data_file = os.path.join(PROJECT_PATH,
+
+        if "contact_num_data_file" in config:
+            self._contact_data_file = os.path.join(PROJECT_PATH,
+                                    "contact_matrix", "results",
+                                    config.get("contact_num_data_file"))
+        else:
+            self._contact_num_data_file = os.path.join(PROJECT_PATH,
                                                    "contact_matrix", "results",
                                                    "dynmatrix_step_1d_window_7d_v6_contactnum.csv")
 
@@ -80,6 +93,8 @@ class DataLoader:
 
         data.index = pd.MultiIndex.from_tuples([(start_date(x), end_date(x)) for x in data.index])
         self.contact_data = data
+        self.start_ts = datetime.strptime(data.index[0][0],'%Y-%m-%d').timestamp()
+        self.end_ts = datetime.strptime(data.index[-1][0],'%Y-%m-%d').timestamp()
 
     def _get_reference_contact_mtx(self):
         data = pd.read_csv(self._reference_contact_file, delimiter=',|:',
