@@ -11,7 +11,7 @@ from r0 import R0Generator
 
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, **config):
         """
         Constructor initializing class by
         - loading data (contact matrices, model parameters, age distribution)
