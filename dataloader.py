@@ -42,7 +42,7 @@ class DataLoader:
                                            "data", "age_distribution.xls")
 
         if "contact_num_data_file" in config:
-            self._contact_data_file = os.path.join(PROJECT_PATH,
+            self._contact_num_data_file = os.path.join(PROJECT_PATH,
                                     "contact_matrix", "results",
                                     config.get("contact_num_data_file"))
         else:
