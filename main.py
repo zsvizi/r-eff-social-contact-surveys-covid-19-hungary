@@ -20,7 +20,7 @@ class Simulation:
         """
         # ------------- USER-DEFINED PARAMETERS -------------
         # Debug variable
-        self.debug = True
+        self.debug = False
         # Time step in contact data
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
@@ -58,26 +58,46 @@ class Simulation:
         self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0][0], '%Y-%m-%d') \
             - datetime.timedelta(days=self.start_date_delta)
 
+        # Member variables for plotting
+        self.r_eff_plot = None
+        self.sol_plot = None
+        self.repi_r0_list = None
+
     def run(self) -> None:
         """
-        Run simulation, see details below
+        Run simulation and plot results
         :return: None
         """
+        # Run simulation
+        self.simulate()
+
+        # Get R0 values from representative questionnaire
+        self.get_repi_r0_list()
+
+        # Instantiate Plotter object
+        plotter = Plotter(sim_obj=self)
+        # Create plots about R_eff values
+        plotter.plot_r_eff(r_eff=self.r_eff_plot, r0_list=self.repi_r0_list)
+
+    def simulate(self) -> None:
+        """
+        Simulate epidemic model and calculates reproduction number
+        :return: None
+        """
+        # Reset time_plot
+        self.time_plot = 1 + len(self.data.contact_data.index)
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
         cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
-
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
         sol_plot = copy.deepcopy(solution)
-
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
-
         # Variables for handling missing dates
         previous_day = self.start_date + datetime.timedelta(days=self.start_date_delta - self.time_step)
         no_missing_dates = 0
@@ -116,33 +136,33 @@ class Simulation:
         # Correct self.time_plot by the number of missing dates
         self.time_plot += no_missing_dates
 
-        # Instantiate Plotter object
-        plotter = Plotter(sim_obj=self)
-        # Generate plot about dominant eigenvalues (for debugging purposes)
-        if self.debug:
-            plotter.plot_dominant_eigenvalues()
+        # Store results
+        self.r_eff_plot = r_eff_plot
+        self.sol_plot = sol_plot
 
-        # Calculate eigenvalues for matrices from representative query
+    def get_repi_r0_list(self) -> None:
+        """
+        Calculate eigenvalues for matrices from representative query
+        :return:
+        """
         print("-------- Representative matrices --------")
         print("Baseline beta:", self.parameters["beta"])
         print("For matrix BASELINE eig. val =", self.r0 / self.parameters["beta"],
               "-> baseline r0 =", self.r0)
         print("-----------------------------------------")
         repi_cm_df = self.data.representative_contact_data
-        r0_list = []
+        repi_r0_list = []
         for indx in repi_cm_df.index:
             self.is_r_eff_calc = False
             cm = repi_cm_df.loc[indx].to_numpy()
             cm_tr = self._get_transformed_cm(cm=cm)
-            eig_val = self._get_r_eff(cm=cm_tr, solution=solution) / self.parameters["beta"]
-            print("For matrix", indx, "eig. val =", eig_val[0], "-> r0 =", eig_val[0] * self.parameters["beta"])
-            r0_list.append(eig_val[0] * self.parameters["beta"])
-
-        # Create plots about model dynamics
-        if not self.debug:
-            plotter.plot_dynamics(sol=sol_plot)
-        # Create plots about R_eff values
-        plotter.plot_r_eff(r_eff=r_eff_plot, r0_list=r0_list)
+            solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution)[0]
+            print("For matrix", indx, "eig. val =", r_eff / self.parameters["beta"], "-> r0 =", r_eff)
+            repi_r0_list.append(r_eff)
+        repi_r0_list.insert(3, repi_r0_list[3])
+        # Store result
+        self.repi_r0_list = repi_r0_list
 
     def _get_initial_beta(self) -> float:
         """
