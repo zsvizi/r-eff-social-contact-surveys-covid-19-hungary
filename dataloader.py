@@ -78,7 +78,7 @@ class DataLoader:
                 self.model_parameters_data.update({param: param_value})
 
     def _get_contact_mtx(self):
-        data = pd.read_csv(self._contact_data_file, delimiter=',|:',
+        data = pd.read_csv(self._contact_data_file, delimiter=',|:', engine='python',
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
         def start_date(x):
@@ -93,21 +93,20 @@ class DataLoader:
         self.end_ts = datetime.strptime(data.index[-1][0], '%Y-%m-%d').timestamp()
 
     def _get_reference_contact_mtx(self):
-        data = pd.read_csv(self._reference_contact_file, delimiter=',|:',
+        data = pd.read_csv(self._reference_contact_file, delimiter=',|:', engine='python',
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
         self.reference_contact_data = data
 
     def _get_representative_contact_mtx(self):
-        data = pd.read_csv(self._representative_contact_file, delimiter=',|:',
+        data = pd.read_csv(self._representative_contact_file, delimiter=',|:', engine='python',
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
         data.fillna(0, inplace=True)
         self.representative_contact_data = data
 
     def _get_contact_num_data(self):
-        data = pd.read_csv(self._contact_num_data_file,
-                           header=None,
-                           sep="-|:|,").rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family'}, axis=1)
+        data = pd.read_csv(self._contact_num_data_file, header=None, sep="-|:|,", engine='python')\
+            .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family'}, axis=1)
         self.contact_num_data = data
 
     def _get_reference_r0_data(self):
