@@ -11,7 +11,7 @@ from r0 import R0Generator
 
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, **config):
         """
         Constructor initializing class by
         - loading data (contact matrices, model parameters, age distribution)
@@ -34,7 +34,7 @@ class Simulation:
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
-        self.data = DataLoader()
+        self.data = DataLoader(**config)
 
         # Instantiate dynamical system
         self.model = RostModelHungary(model_data=self.data)
@@ -61,6 +61,7 @@ class Simulation:
         # Member variables for plotting
         self.r_eff_plot = None
         self.sol_plot = None
+        self.timestamps = None
         self.repi_r0_list = None
 
     def run(self) -> None:
@@ -138,6 +139,9 @@ class Simulation:
 
         # Store results
         self.r_eff_plot = r_eff_plot
+        # added timestamps for simulation data points, first timestamp 1 day before data timestamps for reference matrix
+        self.timestamps = np.concatenate([[self.data.start_ts - 24 * 3600],
+                                          np.linspace(self.data.start_ts, self.data.end_ts, len(self.r_eff_plot)-1)])
         self.sol_plot = sol_plot
 
     def get_repi_r0_list(self) -> None:
