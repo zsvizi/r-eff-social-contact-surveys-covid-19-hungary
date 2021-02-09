@@ -106,7 +106,7 @@ class DataLoader:
 
     def _get_contact_num_data(self):
         data = pd.read_csv(self._contact_num_data_file, header=None, sep="-|:|,", engine='python')\
-            .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family'}, axis=1)
+            .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family', 5: 'mask_percentage'}, axis=1)
         self.contact_num_data = data
 
     def _get_reference_r0_data(self):
