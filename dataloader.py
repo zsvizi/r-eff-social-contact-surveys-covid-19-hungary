@@ -117,8 +117,19 @@ class DataLoader:
         self.representative_contact_data = data
 
     def _get_contact_num_data(self):
-        data = pd.read_csv(self._contact_num_data_file, header=None, sep="-|:|,", engine='python')\
-            .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family', 5: 'mask_percentage'}, axis=1)
+        data = []
+        for day_data in self.contact_data_json:
+            data.append(np.array([day_data['start_ts'],
+                                  day_data['end_ts'],
+                                  day_data['avg_actual_outside_proxy'],
+                                  day_data['avg_actual_inside_proxy'],
+                                  day_data['avg_family'],
+                                  day_data['avg_masking']
+                                  ])
+                        )
+
+        data = pd.DataFrame(data=np.array(data),
+                            columns=['start', 'end', 'outside', 'inside', 'family', 'mask_percentage'])
         self.contact_num_data = data
 
     def _get_reference_r0_data(self):
