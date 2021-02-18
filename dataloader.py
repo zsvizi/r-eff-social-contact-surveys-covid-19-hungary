@@ -107,7 +107,8 @@ class DataLoader:
         contact_matrices = pd.DataFrame(data=np.array(contact_mtx_data))
         contact_matrices.index = pd.MultiIndex.from_tuples(date_list)
         contact_num = pd.DataFrame(data=np.array(contact_num_data),
-                                   columns=['start', 'end', 'outside', 'inside', 'family', 'mask_percentage'])
+                                   columns=['start', 'end', 'outside', 'inside', 'family', 'mask_percentage']
+                                   ).fillna(value=np.nan)
         self.contact_data = contact_matrices
         self.start_ts = timestamps[0][0]
         self.end_ts = timestamps[-1][-1]
