@@ -26,6 +26,9 @@ class DataLoader:
         self._reference_r0_data_file = os.path.join(PROJECT_PATH, "data", "ferenci_r0.csv")
 
         # Contact matrices
+        self._contact_data_json = os.path.join(PROJECT_PATH,
+                                               "contact_matrix", "results",
+                                               "dynmatrix_step_1d_window_7d_v10_kid_reduced_all.json")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
@@ -44,13 +47,17 @@ class DataLoader:
             contact_num_data_file = str(config.get("contact_num_data_file"))
         self._contact_num_data_file = os.path.join(PROJECT_PATH, "contact_matrix", "results", contact_num_data_file)
 
-        # Load data files
+        # Load model parameters
         self._get_model_parameters_data()
         self._get_age_data()
+        # Load contact data JSON
+        self._get_contact_data_json()
+        # Load contact matrices
         self._get_reference_r0_data()
         self._get_representative_contact_mtx()
         self._get_reference_contact_mtx()
         self._get_contact_mtx()
+        # Load contact matrix statistics
         self._get_contact_num_data()
 
     def get_contact_data_filename(self):
@@ -77,20 +84,25 @@ class DataLoader:
             else:
                 self.model_parameters_data.update({param: param_value})
 
+    def _get_contact_data_json(self):
+        with open(self._contact_data_json) as f:
+            content = json.load(f)
+        self.contact_data_json = content
+
     def _get_contact_mtx(self):
-        data = pd.read_csv(self._contact_data_file, delimiter=',|:', engine='python',
-                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
+        contact_matrices = []
+        date_list = []
+        timestamps = []
+        for day_data in self.contact_data_json:
+            contact_matrices.append(np.array(day_data['contact_matrix']).flatten())
+            date_list.append((day_data['start_date'], day_data['end_date']))
+            timestamps.append((day_data['start_ts'], day_data['end_ts']))
 
-        def start_date(x):
-            return datetime.utcfromtimestamp(int(str(x).split('-')[0])).strftime('%Y-%m-%d')
-
-        def end_date(x):
-            return datetime.utcfromtimestamp(int(str(x).split('-')[1])).strftime('%Y-%m-%d')
-
-        data.index = pd.MultiIndex.from_tuples([(start_date(x), end_date(x)) for x in data.index])
+        data = pd.DataFrame(data=np.array(contact_matrices))
+        data.index = pd.MultiIndex.from_tuples(date_list)
         self.contact_data = data
-        self.start_ts = datetime.strptime(data.index[0][0], '%Y-%m-%d').timestamp()
-        self.end_ts = datetime.strptime(data.index[-1][0], '%Y-%m-%d').timestamp()
+        self.start_ts = timestamps[0][0]
+        self.end_ts = timestamps[-1][-1]
 
     def _get_reference_contact_mtx(self):
         data = pd.read_csv(self._reference_contact_file, delimiter=',|:', engine='python',
