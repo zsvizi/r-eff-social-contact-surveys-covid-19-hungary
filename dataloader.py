@@ -32,7 +32,6 @@ class DataLoader:
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
-
         self._representative_contact_file = os.path.join(PROJECT_PATH,
                                                          "contact_matrix", "results",
                                                          "Repr_SumWDKFMtx_weightnorm.csv")
@@ -53,12 +52,11 @@ class DataLoader:
         # Load contact data JSON
         self._get_contact_data_json()
         # Load contact matrices
-        self._get_reference_r0_data()
+        self._get_online_survey_data()
         self._get_representative_contact_mtx()
         self._get_reference_contact_mtx()
-        self._get_contact_mtx()
-        # Load contact matrix statistics
-        self._get_contact_num_data()
+        # Load reference R0 data
+        self._get_reference_r0_data()
 
     def get_contact_data_filename(self):
         return self._contact_data_file.split('/')[-1].split('.')[0]
@@ -89,20 +87,31 @@ class DataLoader:
             content = json.load(f)
         self.contact_data_json = content
 
-    def _get_contact_mtx(self):
-        contact_matrices = []
+    def _get_online_survey_data(self):
+        contact_mtx_data = []
         date_list = []
         timestamps = []
+        contact_num_data = []
         for day_data in self.contact_data_json:
-            contact_matrices.append(np.array(day_data['contact_matrix']).flatten())
+            contact_mtx_data.append(np.array(day_data['contact_matrix']).flatten())
             date_list.append((day_data['start_date'], day_data['end_date']))
             timestamps.append((day_data['start_ts'], day_data['end_ts']))
+            contact_num_data.append(np.array([day_data['start_ts'],
+                                              day_data['end_ts'],
+                                              day_data['avg_actual_outside_proxy'],
+                                              day_data['avg_actual_inside_proxy'],
+                                              day_data['avg_family'],
+                                              day_data['avg_masking']
+                                              ]))
 
-        data = pd.DataFrame(data=np.array(contact_matrices))
-        data.index = pd.MultiIndex.from_tuples(date_list)
-        self.contact_data = data
+        contact_matrices = pd.DataFrame(data=np.array(contact_mtx_data))
+        contact_matrices.index = pd.MultiIndex.from_tuples(date_list)
+        contact_num = pd.DataFrame(data=np.array(contact_num_data),
+                                   columns=['start', 'end', 'outside', 'inside', 'family', 'mask_percentage'])
+        self.contact_data = contact_matrices
         self.start_ts = timestamps[0][0]
         self.end_ts = timestamps[-1][-1]
+        self.contact_num_data = contact_num
 
     def _get_reference_contact_mtx(self):
         data = pd.read_csv(self._reference_contact_file, delimiter=',|:', engine='python',
@@ -115,22 +124,6 @@ class DataLoader:
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
         data.fillna(0, inplace=True)
         self.representative_contact_data = data
-
-    def _get_contact_num_data(self):
-        data = []
-        for day_data in self.contact_data_json:
-            data.append(np.array([day_data['start_ts'],
-                                  day_data['end_ts'],
-                                  day_data['avg_actual_outside_proxy'],
-                                  day_data['avg_actual_inside_proxy'],
-                                  day_data['avg_family'],
-                                  day_data['avg_masking']
-                                  ])
-                        )
-
-        data = pd.DataFrame(data=np.array(data),
-                            columns=['start', 'end', 'outside', 'inside', 'family', 'mask_percentage'])
-        self.contact_num_data = data
 
     def _get_reference_r0_data(self):
         # data from the webpage of Ferenci Tamas
