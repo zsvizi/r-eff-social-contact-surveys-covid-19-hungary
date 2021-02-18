@@ -91,7 +91,7 @@ class Simulation:
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
-        cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0])
+        cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
         sol_plot = copy.deepcopy(solution)
@@ -105,7 +105,7 @@ class Simulation:
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in self.data.contact_data.index:
             # Get contact matrix for current date
-            cm = self.data.contact_data.loc[date]
+            cm = self.data.contact_data.loc[date].to_numpy()
 
             # Transform actual contact matrix data
             cm_tr = self._get_transformed_cm(cm=cm)
