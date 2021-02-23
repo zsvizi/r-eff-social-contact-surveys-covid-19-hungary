@@ -26,32 +26,43 @@ class DataLoader:
         self._reference_r0_data_file = os.path.join(PROJECT_PATH, "data", "ferenci_r0.csv")
 
         # Contact matrices
+        self._contact_data_json = os.path.join(PROJECT_PATH,
+                                               "contact_matrix", "results",
+                                               "dynmatrix_step_1d_window_7d_v10_kid_reduced_all.json")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
-
         self._representative_contact_file = os.path.join(PROJECT_PATH,
                                                          "contact_matrix", "results",
                                                          "Repr_SumWDKFMtx_weightnorm.csv")
 
-        contact_data_file = "dynmatrix_step_1d_window_7d_v6_avg.csv"
-        if "contact_data_file" in config:
-            contact_data_file = str(config.get("contact_data_file"))
-        self._contact_data_file = os.path.join(PROJECT_PATH, "contact_matrix", "results", contact_data_file)
-
-        contact_num_data_file = "dynmatrix_step_1d_window_7d_v6_contactnum.csv"
-        if "contact_num_data_file" in config:
-            contact_num_data_file = str(config.get("contact_num_data_file"))
-        self._contact_num_data_file = os.path.join(PROJECT_PATH, "contact_matrix", "results", contact_num_data_file)
-
-        # Load data files
+        # Load model parameters
         self._get_model_parameters_data()
         self._get_age_data()
-        self._get_reference_r0_data()
+        # Load contact data JSON
+        self._get_contact_data_json()
+        # Load contact matrices
+        self._get_online_survey_data()
         self._get_representative_contact_mtx()
         self._get_reference_contact_mtx()
-        self._get_contact_mtx()
-        self._get_contact_num_data()
+        # Load reference R0 data
+        self._get_reference_r0_data()
+
+        # Overload specified data members, if optional arguments in constructor are used
+        self._contact_data_file = None
+        if "contact_data_file" in config:
+            contact_data_file = str(config.get("contact_data_file"))
+            self._contact_data_file = os.path.join(PROJECT_PATH,
+                                                   "contact_matrix", "results",
+                                                   contact_data_file)
+            self._get_contact_mtx()
+
+        if "contact_num_data_file" in config:
+            contact_num_data_file = str(config.get("contact_num_data_file"))
+            self._contact_num_data_file = os.path.join(PROJECT_PATH,
+                                                       "contact_matrix", "results",
+                                                       contact_num_data_file)
+            self._get_contact_num_data()
 
     def get_contact_data_filename(self):
         return self._contact_data_file.split('/')[-1].split('.')[0]
@@ -77,6 +88,63 @@ class DataLoader:
             else:
                 self.model_parameters_data.update({param: param_value})
 
+    def _get_contact_data_json(self):
+        with open(self._contact_data_json) as f:
+            content = json.load(f)
+        self.contact_data_json = content
+
+    def _get_online_survey_data(self):
+        contact_mtx_data = []
+        date_list = []
+        timestamps = []
+        contact_num_data = []
+        for day_data in self.contact_data_json:
+            contact_mtx_data.append(np.array(day_data['contact_matrix']).flatten())
+            date_list.append((day_data['start_date'], day_data['end_date']))
+            timestamps.append((day_data['start_ts'], day_data['end_ts']))
+            contact_num_data.append(np.array([day_data['start_ts'],
+                                              day_data['end_ts'],
+                                              day_data['avg_actual_outside_proxy'],
+                                              day_data['avg_actual_inside_proxy'],
+                                              day_data['avg_family'],
+                                              day_data['avg_masking']
+                                              ]))
+
+        contact_matrices = pd.DataFrame(data=np.array(contact_mtx_data))
+        contact_matrices.index = pd.MultiIndex.from_tuples(date_list)
+        contact_num = pd.DataFrame(data=np.array(contact_num_data),
+                                   columns=['start', 'end', 'outside', 'inside', 'family', 'mask_percentage']
+                                   ).fillna(value=np.nan)
+        self.contact_data = contact_matrices
+        self.start_ts = timestamps[0][0]
+        self.end_ts = timestamps[-1][-1]
+        self.contact_num_data = contact_num
+
+    def _get_reference_contact_mtx(self):
+        data = pd.read_csv(self._reference_contact_file, delimiter=',|:', engine='python',
+                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
+
+        self.reference_contact_data = data
+
+    def _get_representative_contact_mtx(self):
+        data = pd.read_csv(self._representative_contact_file, delimiter=',|:', engine='python',
+                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
+        data.fillna(0, inplace=True)
+        self.representative_contact_data = data
+
+    def _get_reference_r0_data(self):
+        # data from the webpage of Ferenci Tamas
+        df = pd.read_csv(self._reference_r0_data_file, header=None)
+
+        df.columns = ['method', 'date', 'r0', 'ci']
+
+        df['ci_lower'] = df['ci'].map(lambda s: float(s.split('-')[0]))
+        df['ci_upper'] = df['ci'].map(lambda s: float(s.split('-')[1]))
+
+        df['datetime'] = df['date'].map(lambda d: datetime.strptime(d, '%m/%d/%Y'))
+        df['ts'] = df['datetime'].map(lambda d: d.timestamp())
+        self.reference_r0_data = df
+
     def _get_contact_mtx(self):
         data = pd.read_csv(self._contact_data_file, delimiter=',|:', engine='python',
                            names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
@@ -92,32 +160,7 @@ class DataLoader:
         self.start_ts = datetime.strptime(data.index[0][0], '%Y-%m-%d').timestamp()
         self.end_ts = datetime.strptime(data.index[-1][0], '%Y-%m-%d').timestamp()
 
-    def _get_reference_contact_mtx(self):
-        data = pd.read_csv(self._reference_contact_file, delimiter=',|:', engine='python',
-                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
-
-        self.reference_contact_data = data
-
-    def _get_representative_contact_mtx(self):
-        data = pd.read_csv(self._representative_contact_file, delimiter=',|:', engine='python',
-                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
-        data.fillna(0, inplace=True)
-        self.representative_contact_data = data
-
     def _get_contact_num_data(self):
         data = pd.read_csv(self._contact_num_data_file, header=None, sep="-|:|,", engine='python')\
             .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family', 5: 'mask_percentage'}, axis=1)
         self.contact_num_data = data
-
-    def _get_reference_r0_data(self):
-        # data from the webpage of Ferenci Tamas
-        df = pd.read_csv(self._reference_r0_data_file, header=None)
-
-        df.columns = ['method', 'date', 'r0', 'ci']
-
-        df['ci_lower'] = df['ci'].map(lambda s: float(s.split('-')[0]))
-        df['ci_upper'] = df['ci'].map(lambda s: float(s.split('-')[1]))
-
-        df['datetime'] = df['date'].map(lambda d: datetime.strptime(d, '%m/%d/%Y'))
-        df['ts'] = df['datetime'].map(lambda d: d.timestamp())
-        self.reference_r0_data = df
