@@ -5,7 +5,6 @@ import numpy as np
 
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
-from plotter import Plotter
 from r0 import R0Generator
 
 
@@ -70,14 +69,6 @@ class Simulation:
         """
         # Run simulation
         self.simulate()
-
-        # Get R0 values from representative questionnaire
-        self.get_repi_r0_list()
-
-        # Instantiate Plotter object
-        plotter = Plotter(sim_obj=self)
-        # Create plots about R_eff values
-        plotter.plot_r_eff(r_eff=self.r_eff_plot, r0_list=self.repi_r0_list)
 
     def simulate(self) -> None:
         """
