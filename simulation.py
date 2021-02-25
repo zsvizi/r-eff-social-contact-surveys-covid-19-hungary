@@ -50,11 +50,7 @@ class Simulation:
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
         # Number of contact matrices used in the plotting
-        self.time_plot = 1 + len(self.data.contact_data.index)
-        # Start date (date for reference contact matrix)
-        self.start_date_delta = 1
-        self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0][0], '%Y-%m-%d') \
-            - datetime.timedelta(days=self.start_date_delta)
+        self.time_plot = None
 
         # Member variables for plotting
         self.r_eff_plot = None
@@ -70,13 +66,23 @@ class Simulation:
         # Run simulation
         self.simulate()
 
-    def simulate(self) -> None:
+    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26"
+                 # , reference_matrix: str = None,
+                 ) -> None:
         """
         Simulate epidemic model and calculates reproduction number
         :return: None
         """
-        # Reset time_plot
-        self.time_plot = 1 + len(self.data.contact_data.index)
+        start_date_delta = 1
+        start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
+            - datetime.timedelta(days=start_date_delta)
+        valid_dates = [date
+                       for date in self.data.contact_data.index
+                       if start_date <=
+                       datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
+                       datetime.datetime.strptime(end_time, "%Y-%m-%d")]
+        # Define time_plot
+        self.time_plot = 1 + len(valid_dates)
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
@@ -90,10 +96,10 @@ class Simulation:
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
         # Variables for handling missing dates
-        previous_day = self.start_date + datetime.timedelta(days=self.start_date_delta - self.time_step)
+        previous_day = start_date + datetime.timedelta(days=start_date_delta - self.time_step)
         no_missing_dates = 0
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
-        for date in self.data.contact_data.index:
+        for date in valid_dates:
             # Get contact matrix for current date
             cm = self.data.contact_data.loc[date].to_numpy()
 
