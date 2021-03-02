@@ -71,18 +71,22 @@ class Simulation:
                  ) -> None:
         """
         Simulate epidemic model and calculates reproduction number
+        :param start_time str, start date given in "%Y-%m-%d" format
+        :param end_time str, end date given in "%Y-%m-%d" format
         :return: None
         """
+        # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
             - datetime.timedelta(days=start_date_delta)
+        # Generate valid dates between start and end date
         valid_dates = [date
                        for date in self.data.contact_data.index
                        if start_date <=
                        datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
                        datetime.datetime.strptime(end_time, "%Y-%m-%d")]
         # Define time_plot
-        self.time_plot = 1 + len(valid_dates)
+        self.time_plot = len(valid_dates)
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
@@ -96,7 +100,7 @@ class Simulation:
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
         r_eff_plot = copy.deepcopy(r_eff)
         # Variables for handling missing dates
-        previous_day = start_date + datetime.timedelta(days=start_date_delta - self.time_step)
+        previous_day = start_date
         no_missing_dates = 0
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in valid_dates:
