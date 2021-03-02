@@ -18,8 +18,6 @@ class Simulation:
         :return: None
         """
         # ------------- USER-DEFINED PARAMETERS -------------
-        # Debug variable
-        self.debug = False
         # Time step in contact data
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
@@ -43,8 +41,7 @@ class Simulation:
         self.parameters.update({"susc": np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1])})
 
         # Instantiate R0generator object for calculating effective reproduction numbers
-        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age,
-                                        debug=self.debug)
+        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age)
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
@@ -65,25 +62,13 @@ class Simulation:
         # Run simulation
         self.simulate()
 
-    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26",
-                 baseline_cm_date: tuple = None,
-                 is_r_eff_calc: bool = None
-                 # , reference_matrix: str = None,
-                 ) -> None:
+    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26") -> None:
         """
         Simulate epidemic model and calculates reproduction number
         :param: start_time str, start date given in "%Y-%m-%d" format
         :param: end_time str, end date given in "%Y-%m-%d" format
-        :param: baseline_cm_date, tuple, tuple of date strings in "%Y-%m-%d" format
-        :param: is_r_eff_calc, bool, flag for calculating R_eff
         :return: None
         """
-        # Set passed baseline_cm_date to the member variable
-        if baseline_cm_date is not None:
-            self.baseline_cm_date = baseline_cm_date
-        # Set passed is_r_eff_calc to the member variable
-        if is_r_eff_calc is not None:
-            self.is_r_eff_calc = is_r_eff_calc
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
         self.parameters.update({"beta": self._get_initial_beta()})
         # Add one day for reference

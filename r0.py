@@ -5,7 +5,7 @@ from scipy.linalg import block_diag
 class R0Generator:
     states = ["l1", "l2", "ip", "a1", "a2", "a3", "i1", "i2", "i3"]
 
-    def __init__(self, param: dict, debug: bool = False, n_age: int = 10, n_l: int = 2, n_a: int = 3, n_i: int = 3):
+    def __init__(self, param: dict, n_age: int = 10, n_l: int = 2, n_a: int = 3, n_i: int = 3):
         self.parameters = param
         self.n_age = n_age
         self.n_l = n_l
@@ -14,9 +14,7 @@ class R0Generator:
         self.n_states = len(self.states)
         self.i = {self.states[index]: index for index in np.arange(0, self.n_states)}
         self.s_mtx = self.n_age * self.n_states
-        self.debug = debug
-        if self.debug:
-            self.debug_list = []
+        self.debug_list = []
 
         self.v_inv = None
         self.__get_e()
@@ -41,7 +39,7 @@ class R0Generator:
             eig_val = np.sort(list(map(lambda x: np.abs(x), np.linalg.eig(ngm)[0])))
             eig_val_eff.append(eig_val[-1])
 
-            if self.debug and date is not None:
+            if date is not None:
                 if (idx + 1) % 11 == 0:
                     dom_eig_val = float(eig_val[-1])
                     self.debug_list.append(dom_eig_val)
