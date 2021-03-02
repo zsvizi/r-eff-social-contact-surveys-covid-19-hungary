@@ -44,8 +44,6 @@ class R0Generator:
             if self.debug and date is not None:
                 if (idx + 1) % 11 == 0:
                     dom_eig_val = float(eig_val[-1])
-                    if np.max(contact_matrix) > 6:
-                        print("Large eigenvalue at", date[0], "=", dom_eig_val)
                     self.debug_list.append(dom_eig_val)
                 idx += 1
 

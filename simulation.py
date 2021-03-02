@@ -9,12 +9,13 @@ from r0 import R0Generator
 
 
 class Simulation:
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         """
         Constructor initializing class by
         - loading data (contact matrices, model parameters, age distribution)
         - creates model and r0generator objects
         - calculates initial transmission rate
+        :return: None
         """
         # ------------- USER-DEFINED PARAMETERS -------------
         # Debug variable
@@ -22,11 +23,11 @@ class Simulation:
         # Time step in contact data
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
-        self.r0 = 2.2
+        self.r0 = 2.5
         # Variable for clarifying contact matrix for baseline beta calculation
-        # - None: reference matrix from reference_contact_data
-        # - specified tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
-        self.baseline_cm_date = ('2020-08-30', '2020-09-06')  # None / ('2020-08-30', '2020-09-06')
+        # - ('2020-01-01', '2020-01-01'): reference matrix from reference_contact_data
+        # - other tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
+        self.baseline_cm_date = ('2020-08-30', '2020-09-06')
         # Are effective R values calculated?
         self.is_r_eff_calc = False
         # ------------- USER-DEFINED PARAMETERS END -------------
@@ -44,8 +45,6 @@ class Simulation:
         # Instantiate R0generator object for calculating effective reproduction numbers
         self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age,
                                         debug=self.debug)
-        # Calculate initial transmission rate (beta) based on reference matrix and self.r0
-        self.parameters.update({"beta": self._get_initial_beta()})
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
@@ -66,15 +65,27 @@ class Simulation:
         # Run simulation
         self.simulate()
 
-    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26"
+    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26",
+                 baseline_cm_date: tuple = None,
+                 is_r_eff_calc: bool = None
                  # , reference_matrix: str = None,
                  ) -> None:
         """
         Simulate epidemic model and calculates reproduction number
-        :param start_time str, start date given in "%Y-%m-%d" format
-        :param end_time str, end date given in "%Y-%m-%d" format
+        :param: start_time str, start date given in "%Y-%m-%d" format
+        :param: end_time str, end date given in "%Y-%m-%d" format
+        :param: baseline_cm_date, tuple, tuple of date strings in "%Y-%m-%d" format
+        :param: is_r_eff_calc, bool, flag for calculating R_eff
         :return: None
         """
+        # Set passed baseline_cm_date to the member variable
+        if baseline_cm_date is not None:
+            self.baseline_cm_date = baseline_cm_date
+        # Set passed is_r_eff_calc to the member variable
+        if is_r_eff_calc is not None:
+            self.is_r_eff_calc = is_r_eff_calc
+        # Calculate initial transmission rate (beta) based on reference matrix and self.r0
+        self.parameters.update({"beta": self._get_initial_beta()})
         # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
@@ -194,7 +205,7 @@ class Simulation:
         Returns contact matrix for baseline beta calculation based on user-defined date
         :return: np.ndarray contact matrix from data
         """
-        if self.baseline_cm_date is None:
+        if self.baseline_cm_date == ('2020-01-01', '2020-01-01'):
             baseline_cm = self.data.reference_contact_data.iloc[0].to_numpy()
         else:
             baseline_cm = self.data.contact_data.loc[self.baseline_cm_date].to_numpy()
