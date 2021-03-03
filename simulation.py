@@ -62,15 +62,22 @@ class Simulation:
         # Run simulation
         self.simulate()
 
-    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26") -> None:
+    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26", c: float = 0.3) -> None:
         """
         Simulate epidemic model and calculates reproduction number
         :param: start_time str, start date given in "%Y-%m-%d" format
         :param: end_time str, end date given in "%Y-%m-%d" format
+        :param: c float, seasonality scale
         :return: None
         """
+
+        def seasonality(t: float, c0=0.3):
+            d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
+            return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
+
+        date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
-        self.parameters.update({"beta": self._get_initial_beta()})
+        self.parameters.update({"beta": self._get_initial_beta() * seasonality(t=date_ts, c0=c)})
         # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
@@ -93,7 +100,8 @@ class Simulation:
         sol_plot = copy.deepcopy(solution)
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
-        r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
+        date_ts = datetime.datetime.strptime("2020-03-31", '%Y-%m-%d').timestamp()
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=date_ts, c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
         # Variables for handling missing dates
         previous_day = start_date
@@ -113,7 +121,8 @@ class Simulation:
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date)
+            date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date) * seasonality(t=date_ts, c0=c)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
             # Handle missing data
