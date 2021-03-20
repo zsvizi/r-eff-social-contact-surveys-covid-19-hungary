@@ -65,7 +65,7 @@ class DataLoader:
             self._get_contact_num_data()
 
     def get_contact_data_filename(self):
-        return self._contact_data_file.split('/')[-1].split('.')[0]
+        return self._contact_data_json.split('/')[-1].split('.')[0]
 
     def _get_age_data(self):
         wb = xlrd.open_workbook(self._age_data_file)

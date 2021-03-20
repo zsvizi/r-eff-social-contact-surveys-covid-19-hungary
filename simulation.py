@@ -5,29 +5,27 @@ import numpy as np
 
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
-from plotter import Plotter
 from r0 import R0Generator
 
 
 class Simulation:
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         """
         Constructor initializing class by
         - loading data (contact matrices, model parameters, age distribution)
         - creates model and r0generator objects
         - calculates initial transmission rate
+        :return: None
         """
         # ------------- USER-DEFINED PARAMETERS -------------
-        # Debug variable
-        self.debug = False
         # Time step in contact data
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
-        self.r0 = 2.2
+        self.r0 = 2.5
         # Variable for clarifying contact matrix for baseline beta calculation
-        # - None: reference matrix from reference_contact_data
-        # - specified tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
-        self.baseline_cm_date = ('2020-08-30', '2020-09-06')  # None / ('2020-08-30', '2020-09-06')
+        # - ('2020-01-01', '2020-01-01'): reference matrix from reference_contact_data
+        # - other tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
+        self.baseline_cm_date = ('2020-08-30', '2020-09-06')
         # Are effective R values calculated?
         self.is_r_eff_calc = False
         # ------------- USER-DEFINED PARAMETERS END -------------
@@ -43,19 +41,12 @@ class Simulation:
         self.parameters.update({"susc": np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1])})
 
         # Instantiate R0generator object for calculating effective reproduction numbers
-        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age,
-                                        debug=self.debug)
-        # Calculate initial transmission rate (beta) based on reference matrix and self.r0
-        self.parameters.update({"beta": self._get_initial_beta()})
+        self.r0_generator = R0Generator(param=self.parameters, n_age=self.model.n_age)
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
         # Number of contact matrices used in the plotting
-        self.time_plot = 1 + len(self.data.contact_data.index)
-        # Start date (date for reference contact matrix)
-        self.start_date_delta = 1
-        self.start_date = datetime.datetime.strptime(self.data.contact_data.index[0][0], '%Y-%m-%d') \
-            - datetime.timedelta(days=self.start_date_delta)
+        self.time_plot = None
 
         # Member variables for plotting
         self.r_eff_plot = None
@@ -71,21 +62,34 @@ class Simulation:
         # Run simulation
         self.simulate()
 
-        # Get R0 values from representative questionnaire
-        self.get_repi_r0_list()
-
-        # Instantiate Plotter object
-        plotter = Plotter(sim_obj=self)
-        # Create plots about R_eff values
-        plotter.plot_r_eff(r_eff=self.r_eff_plot, r0_list=self.repi_r0_list)
-
-    def simulate(self) -> None:
+    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26", c: float = 0.3) -> None:
         """
         Simulate epidemic model and calculates reproduction number
+        :param: start_time str, start date given in "%Y-%m-%d" format
+        :param: end_time str, end date given in "%Y-%m-%d" format
+        :param: c float, seasonality scale
         :return: None
         """
-        # Reset time_plot
-        self.time_plot = 1 + len(self.data.contact_data.index)
+
+        def seasonality(t: float, c0=0.3):
+            d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
+            return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
+
+        date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
+        # Calculate initial transmission rate (beta) based on reference matrix and self.r0
+        self.parameters.update({"beta": self._get_initial_beta() * seasonality(t=date_ts, c0=c)})
+        # Add one day for reference
+        start_date_delta = 1
+        start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
+            - datetime.timedelta(days=start_date_delta)
+        # Generate valid dates between start and end date
+        valid_dates = [date
+                       for date in self.data.contact_data.index
+                       if start_date <=
+                       datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
+                       datetime.datetime.strptime(end_time, "%Y-%m-%d")]
+        # Define time_plot
+        self.time_plot = len(valid_dates)
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
@@ -96,13 +100,14 @@ class Simulation:
         sol_plot = copy.deepcopy(solution)
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
-        r_eff = self._get_r_eff(cm=cm_tr, solution=solution)
+        date_ts = datetime.datetime.strptime("2020-03-31", '%Y-%m-%d').timestamp()
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=date_ts, c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
         # Variables for handling missing dates
-        previous_day = self.start_date + datetime.timedelta(days=self.start_date_delta - self.time_step)
+        previous_day = start_date
         no_missing_dates = 0
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
-        for date in self.data.contact_data.index:
+        for date in valid_dates:
             # Get contact matrix for current date
             cm = self.data.contact_data.loc[date].to_numpy()
 
@@ -116,7 +121,8 @@ class Simulation:
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date)
+            date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date) * seasonality(t=date_ts, c0=c)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
             # Handle missing data
@@ -193,7 +199,7 @@ class Simulation:
         Returns contact matrix for baseline beta calculation based on user-defined date
         :return: np.ndarray contact matrix from data
         """
-        if self.baseline_cm_date is None:
+        if self.baseline_cm_date == ('2020-01-01', '2020-01-01'):
             baseline_cm = self.data.reference_contact_data.iloc[0].to_numpy()
         else:
             baseline_cm = self.data.contact_data.loc[self.baseline_cm_date].to_numpy()
