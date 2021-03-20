@@ -23,7 +23,7 @@ class DataLoader:
         # Model related data file paths
         self._model_parameters_data_file = os.path.join(PROJECT_PATH, "data", "model_parameters.json")
         self._age_data_file = os.path.join(PROJECT_PATH, "data", "age_distribution.xls")
-        self._reference_r0_data_file = os.path.join(PROJECT_PATH, "data", "ferenci_r0.csv")
+        self._reference_r_eff_data_file = os.path.join(PROJECT_PATH, "data", "reference_r_eff.csv")
 
         # Contact matrices
         self._contact_data_json = os.path.join(PROJECT_PATH,
@@ -46,7 +46,7 @@ class DataLoader:
         self._get_representative_contact_mtx()
         self._get_reference_contact_mtx()
         # Load reference R0 data
-        self._get_reference_r0_data()
+        self._get_reference_r_eff_data()
 
         # Overload specified data members, if optional arguments in constructor are used
         self._contact_data_file = None
@@ -132,18 +132,12 @@ class DataLoader:
         data.fillna(0, inplace=True)
         self.representative_contact_data = data
 
-    def _get_reference_r0_data(self):
+    def _get_reference_r_eff_data(self):
         # data from the webpage of Ferenci Tamas
-        df = pd.read_csv(self._reference_r0_data_file, header=None)
-
-        df.columns = ['method', 'date', 'r0', 'ci']
-
-        df['ci_lower'] = df['ci'].map(lambda s: float(s.split('-')[0]))
-        df['ci_upper'] = df['ci'].map(lambda s: float(s.split('-')[1]))
-
-        df['datetime'] = df['date'].map(lambda d: datetime.strptime(d, '%m/%d/%Y'))
+        df = pd.read_csv(self._reference_r_eff_data_file)
+        df['datetime'] = df['date'].map(lambda d: datetime.strptime(d, '%Y-%m-%d'))
         df['ts'] = df['datetime'].map(lambda d: d.timestamp())
-        self.reference_r0_data = df
+        self.reference_r_eff_data = df
 
     def _get_contact_mtx(self):
         data = pd.read_csv(self._contact_data_file, delimiter=',|:', engine='python',
