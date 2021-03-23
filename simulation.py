@@ -145,8 +145,10 @@ class Simulation:
         # Store results
         self.r_eff_plot = r_eff_plot
         # added timestamps for simulation data points, first timestamp 1 day before data timestamps for reference matrix
-        self.timestamps = np.concatenate([[self.data.start_ts - 24 * 3600],
-                                          np.linspace(self.data.start_ts, self.data.end_ts, len(self.r_eff_plot)-1)])
+        start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
+        end_ts = datetime.datetime.strptime(end_time, '%Y-%m-%d').timestamp()
+        self.timestamps = np.concatenate([[start_ts - 24 * 3600],
+                                          np.linspace(start_ts, end_ts, len(self.r_eff_plot)-1)])
         self.sol_plot = sol_plot
 
     def get_repi_r0_list(self) -> None:
