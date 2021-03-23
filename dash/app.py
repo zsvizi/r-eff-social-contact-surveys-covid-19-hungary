@@ -1,6 +1,7 @@
 import sys
 
 from dash_core_components.Checklist import Checklist
+from dash_html_components.Div import Div
 sys.path.insert(0,"/".join(sys.path[0].split("/")[:-1]))
 
 from simulation import Simulation
@@ -14,7 +15,10 @@ import dash_html_components as html
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
+import plotly.express as px
+
 import pandas as pd
+import numpy as np
 
 from datetime import datetime
 
@@ -50,10 +54,10 @@ fig = go.Figure(
                 cmin = 0,
                 color = sim.data.reference_r_eff_data[method_mask]["pos"],
                 colorbar = dict(
-                    title = "positivity rate (%)"
+                    title = "pos. rate (%)"
                 ),
             colorscale = "oranges",
-            reversescale = True
+            reversescale = True,
             )
         ),
         go.Scatter(
@@ -66,9 +70,33 @@ fig = go.Figure(
             fill = 'toself',
             mode = 'none'
         ),
-    ]
+    ],
+    layout = dict(
+        legend = dict(
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0
+        )
+    )
 )
 
+contact_matrix_figure = px.imshow(
+    np.zeros((8,8)),
+    x = ["0-4","5-14","15-29","30-44","45-59","60-69","70-79","80+"],
+    y = ["0-4","5-14","15-29","30-44","45-59","60-69","70-79","80+"],
+    labels = {'x': 'Ego age group', 'y' : "Contact age group", 'color': "Number of contacts"},
+    color_continuous_scale = 'blues',
+    zmin=np.log10(1e-4),
+    zmax=np.log10(25),
+    origin='lower'
+)
+contact_matrix_figure.update_traces(hovertemplate='Ego age group: %{x} <br>Contact age group: %{y} <br>Number of contacts: %{text:.2f}')
+contact_matrix_figure.update_layout(coloraxis_colorbar=dict(
+    title="Number of contacts",
+    tickvals=np.linspace(-4,np.log10(25),7),
+    ticktext=list(map(lambda i: "%.3f" % i,np.power(10,np.linspace(-4,np.log10(25),7))))
+))
 daterange = pd.date_range(start='2020-03-01',end=str(datetime.now().date()),freq='D').map(lambda d: str(d.date())).tolist()
 
 params = html.Div(
@@ -111,14 +139,14 @@ params = html.Div(
 app = dash.Dash(__name__)
 
 @app.callback(
-    Output("example-graph","figure"),
+    Output("r_eff_plot","figure"),
     [
         Input("datepicker","value"),
         Input('seasonality','value'),
         Input('is_r_eff_calc','on'),
         Input('baseline_r_0','value')
     ],
-    [State("example-graph","figure")]
+    [State("r_eff_plot","figure")]
 )
 def select_period(datepicker_range, c, is_r_eff_calc, r0, fig):
 
@@ -148,13 +176,37 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0, fig):
 
     return fig
 
+@app.callback(
+    Output('contact_matrix','figure'),
+    [Input('r_eff_plot','hoverData')],
+    [State('contact_matrix','figure')]
+)
+def display_contact_matrix(hoverdata, cm_fig):
+    if hoverdata is not None:
+        date = hoverdata['points'][0]['x'].split(' ')[0]
+        df = pd.DataFrame(sim.data.contact_data_json).set_index("start_date")
+        cm_fig['data'][0]['z'] = np.log10(np.array(df.loc[date]['contact_matrix'])+1e-4)
+        cm_fig['data'][0]['text'] = np.array(df.loc[date]['contact_matrix'])
+        cm_fig['layout']['title'] = date
+    return cm_fig
+
 
 app.layout = html.Div(children=[
     html.H1(children='R_eff estimation dashboard'),
     params,
-    dcc.Graph(
-        id='example-graph',
-        figure=fig
+    html.Div(
+        dcc.Graph(
+            id='r_eff_plot',
+            figure=fig
+        ),
+                style = dict(display = "inline-block", width='70%')
+    ),
+    html.Div(
+        dcc.Graph(
+            id='contact_matrix',
+            figure=contact_matrix_figure
+        ),
+        style = dict(display = "inline-block", width='30%')
     )
 ])
 
