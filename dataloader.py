@@ -64,6 +64,17 @@ class DataLoader:
                                                        contact_num_data_file)
             self._get_contact_num_data()
 
+
+        if "contact_data_json" in config:
+            contact_data_json = str(config.get("contact_data_json"))
+            self._contact_data_json = os.path.join(PROJECT_PATH,
+                                                       "contact_matrix", "results",
+                                                        contact_data_json)
+            self._get_contact_data_json()
+
+        self._get_online_survey_data()
+
+
     def get_contact_data_filename(self):
         return self._contact_data_json.split('/')[-1].split('.')[0]
 
