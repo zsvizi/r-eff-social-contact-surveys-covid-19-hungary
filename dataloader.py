@@ -28,7 +28,7 @@ class DataLoader:
         # Contact matrices
         self._contact_data_json = os.path.join(PROJECT_PATH,
                                                "contact_matrix", "results",
-                                               "dynmatrix_step_1d_window_7d_v10_kid_reduced_all.json")
+                                               "dynmatrix_step_1d_window_7d_v12_kid_reduced_all.json")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
@@ -48,21 +48,21 @@ class DataLoader:
         # Load reference R0 data
         self._get_reference_r_eff_data()
 
-        # Overload specified data members, if optional arguments in constructor are used
-        self._contact_data_file = None
-        if "contact_data_file" in config:
-            contact_data_file = str(config.get("contact_data_file"))
-            self._contact_data_file = os.path.join(PROJECT_PATH,
-                                                   "contact_matrix", "results",
-                                                   contact_data_file)
-            self._get_contact_mtx()
+        # # Overload specified data members, if optional arguments in constructor are used
+        # self._contact_data_file = None
+        # if "contact_data_file" in config:
+        #     contact_data_file = str(config.get("contact_data_file"))
+        #     self._contact_data_file = os.path.join(PROJECT_PATH,
+        #                                            "contact_matrix", "results",
+        #                                            contact_data_file)
+        #     self._get_contact_mtx()
 
-        if "contact_num_data_file" in config:
-            contact_num_data_file = str(config.get("contact_num_data_file"))
-            self._contact_num_data_file = os.path.join(PROJECT_PATH,
-                                                       "contact_matrix", "results",
-                                                       contact_num_data_file)
-            self._get_contact_num_data()
+        # if "contact_num_data_file" in config:
+        #     contact_num_data_file = str(config.get("contact_num_data_file"))
+        #     self._contact_num_data_file = os.path.join(PROJECT_PATH,
+        #                                                "contact_matrix", "results",
+        #                                                contact_num_data_file)
+        #     self._get_contact_num_data()
 
     def get_contact_data_filename(self):
         return self._contact_data_json.split('/')[-1].split('.')[0]
@@ -139,22 +139,22 @@ class DataLoader:
         df['ts'] = df['datetime'].map(lambda d: d.timestamp())
         self.reference_r_eff_data = df
 
-    def _get_contact_mtx(self):
-        data = pd.read_csv(self._contact_data_file, delimiter=',|:', engine='python',
-                           names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
+    # def _get_contact_mtx(self):
+    #     data = pd.read_csv(self._contact_data_file, delimiter=',|:', engine='python',
+    #                        names=['c_' + str(i) + str(j) for i in range(8) for j in range(8)], index_col=0)
 
-        def start_date(x):
-            return datetime.utcfromtimestamp(int(str(x).split('-')[0])).strftime('%Y-%m-%d')
+    #     def start_date(x):
+    #         return datetime.utcfromtimestamp(int(str(x).split('-')[0])).strftime('%Y-%m-%d')
 
-        def end_date(x):
-            return datetime.utcfromtimestamp(int(str(x).split('-')[1])).strftime('%Y-%m-%d')
+    #     def end_date(x):
+    #         return datetime.utcfromtimestamp(int(str(x).split('-')[1])).strftime('%Y-%m-%d')
 
-        data.index = pd.MultiIndex.from_tuples([(start_date(x), end_date(x)) for x in data.index])
-        self.contact_data = data
-        self.start_ts = datetime.strptime(data.index[0][0], '%Y-%m-%d').timestamp()
-        self.end_ts = datetime.strptime(data.index[-1][0], '%Y-%m-%d').timestamp()
+    #     data.index = pd.MultiIndex.from_tuples([(start_date(x), end_date(x)) for x in data.index])
+    #     self.contact_data = data
+    #     self.start_ts = datetime.strptime(data.index[0][0], '%Y-%m-%d').timestamp()
+    #     self.end_ts = datetime.strptime(data.index[-1][0], '%Y-%m-%d').timestamp()
 
-    def _get_contact_num_data(self):
-        data = pd.read_csv(self._contact_num_data_file, header=None, sep="-|:|,", engine='python')\
-            .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family', 5: 'mask_percentage'}, axis=1)
-        self.contact_num_data = data
+    # def _get_contact_num_data(self):
+    #     data = pd.read_csv(self._contact_num_data_file, header=None, sep="-|:|,", engine='python')\
+    #         .rename({0: 'start', 1: 'end', 2: 'outside', 3: 'inside', 4: 'family', 5: 'mask_percentage'}, axis=1)
+    #     self.contact_num_data = data
