@@ -23,6 +23,10 @@ import numpy as np
 
 from datetime import datetime
 
+import matplotlib.pyplot as plt
+from matplotlib.colors import to_hex
+cmap = plt.get_cmap('Greens')
+
 sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v12_kid_reduced_all.json')
 
 sim.time_step = 1
@@ -35,15 +39,16 @@ methods = sim.data.reference_r_eff_data["method"].sort_values().unique()
 m = methods[0]
 method_mask = sim.data.reference_r_eff_data["method"]==m
 
-fig = go.Figure(
-    data = [
-        go.Scatter(
+sample_trace = go.Scatter(
             x = [],
             y = [],
             name = "simulated R_eff",
             marker = dict(color='black'),
             line = dict(width=4)    
-        ),
+        )
+
+fig = go.Figure(
+    data = [
         go.Scatter(
             x = sim.data.reference_r_eff_data[method_mask]["datetime"],
             y = sim.data.reference_r_eff_data[method_mask]["r_eff"],
@@ -73,6 +78,7 @@ fig = go.Figure(
         ),
     ],
     layout = dict(
+        selectdirection = "h",
         legend = dict(
             yanchor="bottom",
             y=1.02,
@@ -177,8 +183,14 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0, fig):
     print("Done.")
 
 
+    fig["data"].insert(0,sample_trace)
     fig["data"][0]["x"] = [datetime.fromtimestamp(t) for t in sim.timestamps]
     fig["data"][0]["y"] = sim.r_eff_plot
+    fig["data"][0]["name"] = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
+
+    for i,t in enumerate(fig["data"][:-3]):
+        fig["data"][i]["marker"]["color"] = to_hex(cmap(0.5+i/len(fig["data"])*0.5))
+
 
     return fig
 
