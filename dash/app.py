@@ -12,6 +12,7 @@ from simulation import Simulation
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_bootstrap_components as dbc
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
@@ -22,7 +23,7 @@ import numpy as np
 
 from datetime import datetime
 
-sim = Simulation()
+sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v12_kid_reduced_all.json')
 
 sim.time_step = 1
 sim.r0 = 2.5
@@ -117,7 +118,8 @@ params = html.Div(
             min = 0,
             max = 0.5,
             step = 0.05,
-            value = 0.3
+            value = 0.3,
+            marks = dict(zip(np.linspace(0,0.5,6),np.array(np.round(np.linspace(0,0.5,6),1),dtype='str')))
         ),
         html.P('Include recovered as immune'),
         daq.BooleanSwitch(
@@ -127,16 +129,20 @@ params = html.Div(
         html.P('Baseline R_0'),
         dcc.Slider(
             id="baseline_r_0",
-            min=2.0,
+            min=2,
             max=3.5,
             value=2.5,
-            step= 0.1
+            step= 0.1,
+            marks = dict(zip(np.linspace(2,3.5,16),np.array(np.round(np.linspace(2,3.5,16),1),dtype='str')))
         )
     ]
 )
 
 
-app = dash.Dash(__name__)
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.FLATLY]
+)
 
 @app.callback(
     Output("r_eff_plot","figure"),
