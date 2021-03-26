@@ -3,8 +3,8 @@ from scipy.integrate import odeint
 
 
 class RostModelHungary:
-    def __init__(self, model_data):
-        self.population = model_data.age_data.flatten()
+    def __init__(self, population_data):
+        self.population = population_data
         self.compartments = ["s", "l1", "l2",
                              "ip", "ia1", "ia2", "ia3",
                              "is1", "is2", "is3",

@@ -34,7 +34,7 @@ class Simulation:
         self.data = DataLoader(**config)
 
         # Instantiate dynamical system
-        self.model = RostModelHungary(model_data=self.data)
+        self.model = RostModelHungary(population_data=self.data.age_data.flatten())
 
         # Get model parameters from DataLoader and append susceptibility age vector to the dictionary
         self.parameters = self.data.model_parameters_data
@@ -63,13 +63,12 @@ class Simulation:
         self.simulate()
 
     def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26", c: float = 0.3,
-                 baseline_cm_date: tuple = None) -> None:
+                 **config) -> None:
         """
         Simulate epidemic model and calculates reproduction number
         :param: start_time str, start date given in "%Y-%m-%d" format
         :param: end_time str, end date given in "%Y-%m-%d" format
         :param: c float, seasonality scale
-        :param: baseline_cm_date tuple, date tuple of contact matrix used for baseline beta calculation
         :return: None
         """
 
@@ -77,8 +76,8 @@ class Simulation:
             d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
             return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
 
-        if baseline_cm_date is not None and isinstance(baseline_cm_date, tuple):
-            self.baseline_cm_date = baseline_cm_date
+        if len(list(config.keys())) > 0:
+            self.data = DataLoader(**config)
 
         date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
