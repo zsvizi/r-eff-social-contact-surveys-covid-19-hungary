@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
 cmap = plt.get_cmap('Greens')
 
-sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v14_kid_reduced_all.json')
+sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json')
 
 sim.time_step = 1
 sim.r0 = 2.5
