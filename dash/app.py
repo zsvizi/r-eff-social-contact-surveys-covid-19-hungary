@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
 cmap = plt.get_cmap('Greens')
 
-sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v12_kid_reduced_all.json')
+sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v14_kid_reduced_all.json')
 
 sim.time_step = 1
 sim.r0 = 2.5
@@ -75,7 +75,13 @@ fig = go.Figure(
             opacity = 0.3,
             fill = 'toself',
             mode = 'none'
-        ),
+        )
+        # ),
+        # go.Scatter(
+        #     x = [datetime.fromtimestamp(t) for t in sim.data.contact_data_json["start_ts"]],
+        #     y = sim.data.contact_data_json["avg_actual_outside_proxy"] + sim.data.contact_data_json["avg_family"],
+        #     name = "contactnum"
+        # )
     ],
     layout = dict(
         selectdirection = "h",
