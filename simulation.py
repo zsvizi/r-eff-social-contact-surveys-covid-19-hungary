@@ -84,19 +84,21 @@ class Simulation:
             self.data = DataLoader(**config)
 
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
-        date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
-        self.parameters.update({"beta": self._get_initial_beta() / seasonality(t=date_ts, c0=c)})
+        baseline_date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
+        self.parameters.update(
+            {"beta": self._get_initial_beta() / seasonality(t=baseline_date_ts, c0=c)})
         # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
             - datetime.timedelta(days=start_date_delta)
+        start_date_ts = start_date.timestamp()
         # Generate valid dates between start and end date
         valid_dates = [date
                        for date in self.data.contact_data.index
                        if start_date <=
                        datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
                        datetime.datetime.strptime(end_time, "%Y-%m-%d")]
-        # Get zeroth day matrix
+        # Get 0th day matrix
         zeroth_day_index = (start_date.strftime("%Y-%m-%d"),
                             (start_date + datetime.timedelta(days=7)).strftime("%Y-%m-%d"))
         zeroth_day_matrix = \
@@ -110,14 +112,14 @@ class Simulation:
         cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
 
         # Get solution for the first time interval (here, we have the reference matrix)
-        self.parameters["beta"] *= seasonality(t=start_date.timestamp(), c0=c)
+        self.parameters["beta"] *= seasonality(t=start_date_ts, c0=c)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
-        self.parameters["beta"] /= seasonality(t=start_date.timestamp(), c0=c)
+        self.parameters["beta"] /= seasonality(t=start_date_ts, c0=c)
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
-        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date.timestamp(), c0=c)
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date_ts, c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in valid_dates:
