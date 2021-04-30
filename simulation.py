@@ -70,39 +70,50 @@ class Simulation:
         :param: c float, seasonality scale
         :return: None
         """
+        # Transform start and end time to timestamp
+        start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
+        end_ts = datetime.datetime.strptime(end_time, '%Y-%m-%d').timestamp()
 
+        # Local function for seasonality calculation
         def seasonality(t: float, c0=0.3):
             d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
             return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
 
+        # Update data if config argument is used
         if len(list(config.keys())) > 0:
             self.data = DataLoader(**config)
 
-        date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
-        self.parameters.update({"beta": self._get_initial_beta() * seasonality(t=date_ts, c0=c)})
+        date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
+        self.parameters.update({"beta": self._get_initial_beta() / seasonality(t=date_ts, c0=c)})
         # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
-            - datetime.timedelta(days=start_date_delta)
+                     - datetime.timedelta(days=start_date_delta)
         # Generate valid dates between start and end date
         valid_dates = [date
                        for date in self.data.contact_data.index
                        if start_date <=
                        datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
                        datetime.datetime.strptime(end_time, "%Y-%m-%d")]
+        # Get zeroth day matrix
+        zeroth_day_index = (start_date.strftime("%Y-%m-%d"),
+                            (start_date + datetime.timedelta(days=7)).strftime("%Y-%m-%d"))
+        zeroth_day_matrix = \
+            self.data.reference_contact_data.iloc[0].to_numpy() \
+                if start_time == '2020-03-31' \
+                else self.data.contact_data.loc[zeroth_day_index].to_numpy()
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
-        cm_tr = self._get_transformed_cm(cm=self.data.reference_contact_data.iloc[0].to_numpy())
+        cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
         sol_plot = copy.deepcopy(solution)
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
-        date_ts = datetime.datetime.strptime("2020-03-31", '%Y-%m-%d').timestamp()
-        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=date_ts, c0=c)
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date.timestamp(), c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in valid_dates:
@@ -126,10 +137,8 @@ class Simulation:
         # Store results
         self.r_eff_plot = r_eff_plot
         # added timestamps for simulation data points, first timestamp 1 day before data timestamps for reference matrix
-        start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
-        end_ts = datetime.datetime.strptime(end_time, '%Y-%m-%d').timestamp()
-        self.timestamps = np.concatenate([[start_ts - 24 * 3600],
-                                          np.linspace(start_ts, end_ts, len(self.r_eff_plot)-1)])
+        self.timestamps = np.concatenate([[start_date.timestamp()],
+                                          np.linspace(start_ts, end_ts, len(self.r_eff_plot) - 1)])
         self.sol_plot = sol_plot
 
     def get_repi_r0_list(self) -> None:
