@@ -45,8 +45,6 @@ class Simulation:
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
-        # Number of contact matrices used in the plotting
-        self.time_plot = None
 
         # Member variables for plotting
         self.r_eff_plot = None
@@ -66,6 +64,7 @@ class Simulation:
                  **config) -> None:
         """
         Simulate epidemic model and calculates reproduction number
+        Assumption: contact matrix is available for all days between start_time and end_time
         :param: start_time str, start date given in "%Y-%m-%d" format
         :param: end_time str, end date given in "%Y-%m-%d" format
         :param: c float, seasonality scale
@@ -92,8 +91,6 @@ class Simulation:
                        if start_date <=
                        datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
                        datetime.datetime.strptime(end_time, "%Y-%m-%d")]
-        # Define time_plot
-        self.time_plot = len(valid_dates)
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
@@ -107,9 +104,6 @@ class Simulation:
         date_ts = datetime.datetime.strptime("2020-03-31", '%Y-%m-%d').timestamp()
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=date_ts, c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
-        # Variables for handling missing dates
-        previous_day = start_date
-        no_missing_dates = 0
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in valid_dates:
             # Get contact matrix for current date
@@ -128,23 +122,6 @@ class Simulation:
             date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
             r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date) * seasonality(t=date_ts, c0=c)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
-
-            # Handle missing data
-            # In the following, we use date[0], since contact matrices are indexed by tuple (start_date, end_date)
-            one_day_back = datetime.datetime.strptime(date[0], '%Y-%m-%d') - datetime.timedelta(days=self.time_step)
-            if one_day_back != previous_day:
-                diff_days = (datetime.datetime.strptime(date[0], '%Y-%m-%d') - previous_day).days
-                # Append zeros for missing dates
-                for _ in range(1, diff_days):
-                    no_missing_dates += 1
-                    sol_plot = np.append(sol_plot, np.zeros(solution[1:].shape), axis=0)
-                    r_eff_plot = np.append(r_eff_plot, np.zeros(r_eff[1:].shape), axis=0)
-                    self.r0_generator.debug_list.append(-1)
-            # Update previous day to actual one
-            previous_day = datetime.datetime.strptime(date[0], '%Y-%m-%d')
-
-        # Correct self.time_plot by the number of missing dates
-        self.time_plot += no_missing_dates
 
         # Store results
         self.r_eff_plot = r_eff_plot
