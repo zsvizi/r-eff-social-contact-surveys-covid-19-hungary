@@ -31,6 +31,9 @@ class R0Generator:
         contact_matrix_tensor = cm_tensor * susc_tensor
         eig_val_eff = []
         idx = 0
+        # Debugging (for non-baseline calculations):
+        # (np.abs(contact_mtx * (susceptibles[4].reshape(-1, 1) / population.reshape((-1, 1))) -
+        #         contact_matrix_tensor[4]) < 1e-6).all()
         for cm in contact_matrix_tensor:
             contact_matrix = cm if is_effective_calculated else contact_mtx
             f = self.__get_f(contact_matrix)
