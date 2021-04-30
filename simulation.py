@@ -89,7 +89,7 @@ class Simulation:
         # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
-                     - datetime.timedelta(days=start_date_delta)
+            - datetime.timedelta(days=start_date_delta)
         # Generate valid dates between start and end date
         valid_dates = [date
                        for date in self.data.contact_data.index
@@ -101,8 +101,8 @@ class Simulation:
                             (start_date + datetime.timedelta(days=7)).strftime("%Y-%m-%d"))
         zeroth_day_matrix = \
             self.data.reference_contact_data.iloc[0].to_numpy() \
-                if start_time == '2020-03-31' \
-                else self.data.contact_data.loc[zeroth_day_index].to_numpy()
+            if start_time == '2020-03-31' \
+            else self.data.contact_data.loc[zeroth_day_index].to_numpy()
         # Get transformed contact matrix (here, we have the reference matrix)
         # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
         # then take average of result and transpose of result
