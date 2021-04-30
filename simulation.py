@@ -152,30 +152,6 @@ class Simulation:
                                           np.linspace(start_ts, end_ts, len(self.r_eff_plot) - 1)])
         self.sol_plot = sol_plot
 
-    def get_repi_r0_list(self) -> None:
-        """
-        Calculate eigenvalues for matrices from representative query
-        :return:
-        """
-        print("-------- Representative matrices --------")
-        print("Baseline beta:", self.parameters["beta"])
-        print("For matrix BASELINE eig. val =", self.r0 / self.parameters["beta"],
-              "-> baseline r0 =", self.r0)
-        print("-----------------------------------------")
-        repi_cm_df = self.data.representative_contact_data
-        repi_r0_list = []
-        for indx in repi_cm_df.index:
-            self.is_r_eff_calc = False
-            cm = repi_cm_df.loc[indx].to_numpy()
-            cm_tr = self._get_transformed_cm(cm=cm)
-            solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
-            r_eff = self._get_r_eff(cm=cm_tr, solution=solution)[0]
-            print("For matrix", indx, "eig. val =", r_eff / self.parameters["beta"], "-> r0 =", r_eff)
-            repi_r0_list.append(r_eff)
-        repi_r0_list.insert(3, repi_r0_list[3])
-        # Store result
-        self.repi_r0_list = repi_r0_list
-
     def _get_initial_beta(self) -> float:
         """
         Calculates transmission rate used in the dynamical model based on the reference matrix
