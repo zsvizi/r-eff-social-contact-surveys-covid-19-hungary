@@ -128,10 +128,10 @@ params = html.Div(
         dcc.Slider(
             id = 'seasonality',
             min = 0,
-            max = 0.5,
+            max = 1.0,
             step = 0.05,
             value = 0.3,
-            marks = dict(zip(np.linspace(0,0.5,6),np.array(np.round(np.linspace(0,0.5,6),1),dtype='str')))
+            marks = dict(zip(np.linspace(0,1.0,11),np.array(np.round(np.linspace(0,1.0,11),1),dtype='str')))
         ),
         html.P('Include recovered as immune'),
         daq.BooleanSwitch(
