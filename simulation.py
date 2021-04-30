@@ -8,6 +8,11 @@ from model import RostModelHungary
 from r0 import R0Generator
 
 
+def seasonality(t: float, c0=0.3):
+    d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
+    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
+
+
 class Simulation:
     def __init__(self, **config) -> None:
         """
@@ -74,11 +79,6 @@ class Simulation:
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
         end_ts = datetime.datetime.strptime(end_time, '%Y-%m-%d').timestamp()
 
-        # Local function for seasonality calculation
-        def seasonality(t: float, c0=0.3):
-            d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
-            return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
-
         # Update data if config argument is used
         if len(list(config.keys())) > 0:
             self.data = DataLoader(**config)
@@ -108,15 +108,22 @@ class Simulation:
         # then take average of result and transpose of result
         # then divide by the age distribution as a column
         cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
+
         # Get solution for the first time interval (here, we have the reference matrix)
+        self.parameters["beta"] *= seasonality(t=start_date.timestamp(), c0=c)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
+        self.parameters["beta"] /= seasonality(t=start_date.timestamp(), c0=c)
         sol_plot = copy.deepcopy(solution)
+
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date.timestamp(), c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
         # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
         for date in valid_dates:
+            # Convert date to timestamp
+            date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
+
             # Get contact matrix for current date
             cm = self.data.contact_data.loc[date].to_numpy()
 
@@ -124,13 +131,15 @@ class Simulation:
             cm_tr = self._get_transformed_cm(cm=cm)
 
             # Get solution for the actual time interval
+            self.parameters["beta"] *= seasonality(t=date_ts, c0=c)
             solution = self._get_solution(contact_mtx=cm_tr,
                                           iv=solution[-1])
+            self.parameters["beta"] /= seasonality(t=date_ts, c0=c)
+
             # Append this solution piece
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
             r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date) * seasonality(t=date_ts, c0=c)
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
