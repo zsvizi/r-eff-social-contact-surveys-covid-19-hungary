@@ -79,7 +79,9 @@ class Simulation:
                  **config) -> None:
         """
         Simulate epidemic model and calculates reproduction number
-        Assumption: contact matrix is available for all days between start_time and end_time
+        Assumptions:
+        - contact matrix is available for all days between start_time and end_time
+        - parameter 'beta' does NOT contain seasonality effect (it has to be adjusted, if it is used)
         :param start_time: str, start date given in "%Y-%m-%d" format
         :param end_time: str, end date given in "%Y-%m-%d" format
         :param c: float, seasonality scale
@@ -115,6 +117,8 @@ class Simulation:
                        datetime.datetime.strptime(end_time, "%Y-%m-%d")]
 
         # Get 0th day matrix
+        # - matrix from reference file, if simulation starting time (=start_date) = date of first measured matrix
+        # - matrix from day before start_date, if start_date is later
         zeroth_day_index = (start_date.strftime("%Y-%m-%d"),
                             (start_date + datetime.timedelta(days=7)).strftime("%Y-%m-%d"))
         zeroth_day_matrix = \
@@ -123,9 +127,6 @@ class Simulation:
             else self.data.contact_data.loc[zeroth_day_index].to_numpy()
 
         # Get transformed contact matrix (here, we have the reference matrix)
-        # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
-        # then take average of result and transpose of result
-        # then divide by the age distribution as a column
         cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
 
         # Get solution for the first time interval (here, we have the reference matrix)
@@ -138,7 +139,7 @@ class Simulation:
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date_ts, c0=c)
         r_eff_plot = copy.deepcopy(r_eff)
 
-        # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
+        # Piecewise solution of the dynamical model
         for date in valid_dates:
             # Convert date to timestamp
             date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
@@ -153,7 +154,7 @@ class Simulation:
             solution = self._get_solution(contact_mtx=cm_tr, iv=solution[-1],
                                           season_factor=seasonality(t=date_ts, c0=c))
 
-            # Append this solution piece
+            # Append this piece of solution
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
@@ -186,6 +187,7 @@ class Simulation:
         eig_value_0 = self.r0_generator.get_eig_val(contact_mtx=cm,
                                                     population=population,
                                                     susceptibles=susceptibles)[0]
+
         # Get initial beta from baseline R0
         beta = self.r0 / eig_value_0
         return beta
@@ -203,7 +205,10 @@ class Simulation:
 
     def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
         """
-        Symmetrizes input contact matrix
+        Transforms input contact matrix:
+        - multiply by age distribution as a row (based on concept of contact matrices from data),
+        - then take average of result and transpose of result
+        - then divide by the age distribution as a column
         :param cm: np.ndarray, input contact matrix as a row vector
         :return: np.ndarray, symmetrized contact matrix in a matrix form
         """
@@ -247,6 +252,7 @@ class Simulation:
             initial_value = self.model.get_initial_values()
         else:
             initial_value = iv
+        # Beta is adjusted by the seasonality factor here
         self.parameters["beta"] *= season_factor
         solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
                                            contact_matrix=contact_mtx)
