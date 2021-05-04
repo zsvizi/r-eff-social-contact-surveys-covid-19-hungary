@@ -136,7 +136,8 @@ class Simulation:
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
-        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date_ts, c0=c)
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
+                                season_factor=seasonality(t=start_date_ts, c0=c))
         r_eff_plot = copy.deepcopy(r_eff)
 
         # Piecewise solution of the dynamical model
@@ -158,7 +159,8 @@ class Simulation:
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=date_ts, c0=c)
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
+                                    season_factor=seasonality(t=date_ts, c0=c))
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
         # Store results
@@ -215,11 +217,14 @@ class Simulation:
         return transform_matrix(age_data=self.data.age_data,
                                 matrix=cm.reshape((self.model.n_age, self.model.n_age)))
 
-    def _get_r_eff(self, cm: np.ndarray, solution: np.ndarray) -> np.ndarray:
+    def _get_r_eff(self, cm: np.ndarray,
+                   solution: np.ndarray,
+                   season_factor: float = 1.0) -> np.ndarray:
         """
         Calculates r_eff values for actual time interval
         :param cm: np.ndarray, actual contact matrix
         :param solution: np.ndarray, solution piece of the model for the actual time interval
+        :param season_factor: float, seasonality factor
         :return: np.ndarray, r_eff values
         """
         susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
@@ -227,6 +232,8 @@ class Simulation:
                                                                         population=self.model.population,
                                                                         susceptibles=susceptibles,
                                                                         is_effective_calculated=self.is_r_eff_calc)
+        # Result is adjusted by the seasonality factor (since beta does not contain this effect)
+        r_eff *= season_factor
         return r_eff
 
     def _get_solution(self, contact_mtx: np.ndarray,
