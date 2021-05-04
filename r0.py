@@ -14,7 +14,6 @@ class R0Generator:
         self.n_states = len(self.states)
         self.i = {self.states[index]: index for index in np.arange(0, self.n_states)}
         self.s_mtx = self.n_age * self.n_states
-        self.debug_list = []
 
         self.v_inv = None
         self.__get_e()
@@ -22,7 +21,6 @@ class R0Generator:
 
     def get_eig_val(self, contact_mtx: np.array,
                     susceptibles: np.ndarray, population: np.ndarray,
-                    date: str = None,
                     is_effective_calculated: bool = True) -> np.ndarray:
         # contact matrix needed for effective reproduction number: [c_{j,i} * S_i(t) / N_i(t)]
         contact_matrix = contact_mtx / population.reshape((-1, 1))
@@ -30,7 +28,6 @@ class R0Generator:
         susc_tensor = susceptibles.reshape((susceptibles.shape[0], susceptibles.shape[1], 1))
         contact_matrix_tensor = cm_tensor * susc_tensor
         eig_val_eff = []
-        idx = 0
         # Debugging (for non-baseline calculations):
         # (np.abs(contact_mtx * (susceptibles[4].reshape(-1, 1) / population.reshape((-1, 1))) -
         #         contact_matrix_tensor[4]) < 1e-6).all()
@@ -41,12 +38,6 @@ class R0Generator:
             ngm = self.e @ ngm_large @ self.e.T
             eig_val = np.sort(list(map(lambda x: np.abs(x), np.linalg.eig(ngm)[0])))
             eig_val_eff.append(eig_val[-1])
-
-            if date is not None:
-                if (idx + 1) % 11 == 0:
-                    dom_eig_val = float(eig_val[-1])
-                    self.debug_list.append(dom_eig_val)
-                idx += 1
 
         return np.array(eig_val_eff)
 
