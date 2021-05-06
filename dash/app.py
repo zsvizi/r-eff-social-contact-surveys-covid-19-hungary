@@ -146,7 +146,34 @@ params = html.Div(
             value=2.5,
             step= 0.1,
             marks = dict(zip(np.linspace(2,3.5,16),np.array(np.round(np.linspace(2,3.5,16),1),dtype='str')))
-        )
+        ),
+        # TEST: added for tesing initial values
+        html.P('Test initial value'),
+        daq.BooleanSwitch(
+            id="test_init_value",
+            on=False
+        ),
+        # TEST: added for tesing initial values
+        html.P('Initial R_0'),
+        dcc.Slider(
+            id="initial_r_0",
+            min=1,
+            max=2.5,
+            value=1.3,
+            step=0.1,
+            marks=dict(zip(np.linspace(1, 2.5, 16), np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
+        ),
+
+        # TEST: added for tesing initial values
+        html.P('Initial ratio of recovereds'),
+        dcc.Slider(
+            id='init_ratio_recovered',
+            min=0,
+            max=0.1,
+            step=0.01,
+            value=0.02,
+            marks=dict(zip(np.linspace(0, 0.1, 11), np.array(np.round(np.linspace(0, 0.1, 11), 2), dtype='str')))
+        ),
     ]
 )
 
@@ -162,17 +189,28 @@ app = dash.Dash(
         Input("datepicker","value"),
         Input('seasonality','value'),
         Input('is_r_eff_calc','on'),
-        Input('baseline_r_0','value')
+        Input('baseline_r_0','value'),
+        # TEST: added for tesing initial values
+        Input('test_init_value','on'),
+        Input('initial_r_0','value'),
+        Input('init_ratio_recovered','value'),
     ],
     [State("r_eff_plot","figure")]
 )
-def select_period(datepicker_range, c, is_r_eff_calc, r0, fig):
+def select_period(datepicker_range, c, is_r_eff_calc, r0,
+                  test_init_value, initial_r0,  init_ratio_recovered,  # TEST: added for tesing initial values
+                  fig):
 
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
 
     sim.is_r_eff_calc = is_r_eff_calc
     sim.r0 = r0
+
+    # TEST: added for tesing initial values
+    sim.is_init_value_tested = test_init_value
+    sim.initial_r0 = initial_r0
+    sim.init_ratio_recovered = init_ratio_recovered
 
     print("Running simulation...")
     print("\tc", c)
@@ -197,6 +235,9 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0, fig):
     for i,t in enumerate(fig["data"][:-3]):
         fig["data"][i]["marker"]["color"] = to_hex(cmap(0.5+i/len(fig["data"])*0.5))
 
+    # TEST: added for tesing initial values
+    if test_init_value:
+        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.2f" % (initial_r0, init_ratio_recovered)
 
     return fig
 

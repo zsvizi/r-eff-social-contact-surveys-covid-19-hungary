@@ -41,6 +41,12 @@ class Simulation:
         self.baseline_cm_date = ('2020-08-30', '2020-09-06')
         # Are effective R values calculated?
         self.is_r_eff_calc = False
+        # Is initial value test running?
+        self.is_init_value_tested = False
+        # Initial R0 for testing initial values
+        self.initial_r0 = 1.3
+        # Initial ratio of recovereds for testing initial values
+        self.init_ratio_recovered = 0.02
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
