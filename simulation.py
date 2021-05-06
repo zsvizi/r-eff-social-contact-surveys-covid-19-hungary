@@ -47,6 +47,8 @@ class Simulation:
         self.initial_r0 = 1.3
         # Initial ratio of recovereds for testing initial values
         self.init_ratio_recovered = 0.02
+        # Date from effective reproduction number is calculated if is_r_eff_calc = True
+        self.date_r_eff_calc = datetime.datetime.strptime('2020-09-13', "%Y-%m-%d").timestamp()
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -64,6 +66,9 @@ class Simulation:
 
         # Number of points evaluated for a time unit in odeint
         self.bin_size = 10
+
+        # Is R_eff calculated for the current date?
+        self.is_r_eff_calc_current_date = False
 
         # Member variables for plotting
         self.r_eff_plot = None
@@ -93,6 +98,7 @@ class Simulation:
         :param c: float, seasonality scale
         :return: None
         """
+
         # Transform start and end time to timestamp
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
         end_ts = datetime.datetime.strptime(end_time, '%Y-%m-%d').timestamp()
@@ -164,6 +170,13 @@ class Simulation:
             # Append this piece of solution
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
+            # Set flag for calculating R_eff for the current date, if is_r_eff_calc = True
+            if self.is_r_eff_calc:
+                if date_ts < self.date_r_eff_calc:
+                    self.is_r_eff_calc_current_date = False
+                else:
+                    self.is_r_eff_calc_current_date = True
+
             # Get effective reproduction number for the actual time interval
             r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
                                     season_factor=seasonality(t=date_ts, c0=c))
@@ -234,10 +247,11 @@ class Simulation:
         :return: np.ndarray, r_eff values
         """
         susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
-        r_eff = self.parameters["beta"] * self.r0_generator.get_eig_val(contact_mtx=cm,
-                                                                        population=self.model.population,
-                                                                        susceptibles=susceptibles,
-                                                                        is_effective_calculated=self.is_r_eff_calc)
+        r_eff = self.parameters["beta"] * \
+            self.r0_generator.get_eig_val(contact_mtx=cm,
+                                          population=self.model.population,
+                                          susceptibles=susceptibles,
+                                          is_effective_calculated=self.is_r_eff_calc_current_date)
         # Result is adjusted by the seasonality factor (since beta does not contain this effect)
         r_eff *= season_factor
         return r_eff
@@ -262,7 +276,7 @@ class Simulation:
         t = np.linspace(0, time_step, 1 + time_step * self.bin_size)
         # For first time interval, get initial values from model class method
         if iv is None:
-            initial_value = self.model.get_initial_values()
+            initial_value = self.data.initial_value
         else:
             initial_value = iv
         # Beta is adjusted by the seasonality factor here
