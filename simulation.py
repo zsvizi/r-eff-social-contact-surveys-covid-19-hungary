@@ -34,21 +34,26 @@ class Simulation:
         # Time step in contact data
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
-        self.r0 = 2.5
+        self.r0 = 1.3
         # Variable for clarifying contact matrix for baseline beta calculation
         # - ('2020-01-01', '2020-01-01'): reference matrix from reference_contact_data
         # - other tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
-        self.baseline_cm_date = ('2020-08-30', '2020-09-06')
+        date_for_calibration = '2020-09-13'
+        self.baseline_cm_date = (date_for_calibration, '2020-09-20')
         # Are effective R values calculated?
         self.is_r_eff_calc = False
+        # Date from effective reproduction number is calculated if is_r_eff_calc = True
+        self.date_r_eff_calc = datetime.datetime.strptime(date_for_calibration, "%Y-%m-%d").timestamp()
+
+        # TEST: added for tesing initial values
         # Is initial value test running?
-        self.is_init_value_tested = False
+        self.is_init_value_tested = True
         # Initial R0 for testing initial values
-        self.initial_r0 = 1.3
+        self.initial_r0 = 2.0
         # Initial ratio of recovereds for testing initial values
         self.init_ratio_recovered = 0.02
-        # Date from effective reproduction number is calculated if is_r_eff_calc = True
-        self.date_r_eff_calc = datetime.datetime.strptime('2020-09-13', "%Y-%m-%d").timestamp()
+        # Date for the initial contact matrix
+        self.date_init_cm = '2020-08-30'
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -164,7 +169,8 @@ class Simulation:
             cm_tr = self._get_transformed_cm(cm=cm)
 
             # Get solution for the actual time interval
-            solution = self._get_solution(contact_mtx=cm_tr, iv=solution[-1],
+            init_val = solution[-1] if date_ts != self.date_r_eff_calc else None  # TEST: added for testing init values
+            solution = self._get_solution(contact_mtx=cm_tr, iv=init_val,
                                           season_factor=seasonality(t=date_ts, c0=c))
 
             # Append this piece of solution
@@ -274,11 +280,35 @@ class Simulation:
             time_step = self.time_step
         # Get time interval
         t = np.linspace(0, time_step, 1 + time_step * self.bin_size)
-        # For first time interval, get initial values from model class method
-        if iv is None:
-            initial_value = self.data.initial_value
+        # TEST: added for testing init values (whole TRUE branch)
+        if self.is_init_value_tested:
+
+            def calculate_initial_value(obj: "Simulation") -> np.ndarray:
+                init_val = obj.model.get_initial_values()
+                tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
+                # Get contact matrix for current date
+                cm = self.data.contact_data.loc[self.date_init_cm].to_numpy()
+                cm_tr = self._get_transformed_cm(cm=cm)
+                sol = obj.model.get_solution(t=tt, initial_values=init_val,
+                                             parameters=obj.parameters,
+                                             contact_matrix=cm_tr)
+                sol_rec = obj.model.aggregate_by_age(sol, self.model.c_idx["r"])
+                is_rec_ratio_less_than_init_ratio = \
+                    (sol_rec / np.sum(self.data.age_data)) > self.init_ratio_recovered
+                return sol[is_rec_ratio_less_than_init_ratio][0].flatten()
+
+            if iv is None:
+                self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
+                initial_value = calculate_initial_value(self)
+                self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
+            else:
+                initial_value = iv
         else:
-            initial_value = iv
+            # For first time interval, get initial values from model class method
+            if iv is None:
+                initial_value = self.data.initial_value
+            else:
+                initial_value = iv
         # Beta is adjusted by the seasonality factor here
         self.parameters["beta"] *= season_factor
         solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
