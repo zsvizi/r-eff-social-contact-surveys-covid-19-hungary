@@ -141,11 +141,11 @@ params = html.Div(
         html.P('Baseline R_0'),
         dcc.Slider(
             id="baseline_r_0",
-            min=2,
-            max=3.5,
-            value=2.5,
+            min=1,
+            max=2.5,
+            value=1.3,
             step= 0.1,
-            marks = dict(zip(np.linspace(2,3.5,16),np.array(np.round(np.linspace(2,3.5,16),1),dtype='str')))
+            marks = dict(zip(np.linspace(1,2.5,16),np.array(np.round(np.linspace(1,2.5,16),1),dtype='str')))
         ),
         # TEST: added for tesing initial values
         html.P('Test initial value'),
@@ -159,7 +159,7 @@ params = html.Div(
             id="initial_r_0",
             min=1,
             max=2.5,
-            value=1.3,
+            value=2.0,
             step=0.1,
             marks=dict(zip(np.linspace(1, 2.5, 16), np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
         ),
@@ -237,7 +237,7 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
 
     # TEST: added for tesing initial values
     if test_init_value:
-        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.2f" % (initial_r0, init_ratio_recovered)
+        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f" % (initial_r0, init_ratio_recovered)
 
     return fig
 
