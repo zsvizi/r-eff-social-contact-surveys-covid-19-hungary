@@ -1,0 +1,15 @@
+#filter-elements{
+    width: 50%;
+    margin:auto;
+    padding-bottom: 30px;
+
+}
+
+p{
+    padding-bottom: 10px;
+    padding-top: 10px;
+}
+
+h1{
+    padding: 20px;
+}

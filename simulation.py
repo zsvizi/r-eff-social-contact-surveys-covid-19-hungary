@@ -8,7 +8,15 @@ from model import RostModelHungary
 from r0 import R0Generator
 
 
-def seasonality(t: float, c0=0.3):
+def seasonality(t: float, c0: float = 0.3) -> float:
+    """
+    Theoretical function for simulating seasonality of epidemic spread.
+    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
+    The period of the function is 366 days.
+    :param t: float, timestamp of the date
+    :param c0: float, magnitude of the seasonality effect
+    :return: float, seasonality factor
+    """
     d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
     return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
 
@@ -65,14 +73,18 @@ class Simulation:
         # Run simulation
         self.simulate()
 
-    def simulate(self, start_time: str = "2020-03-31", end_time: str = "2021-01-26", c: float = 0.3,
+    def simulate(self, start_time: str = "2020-03-31",
+                 end_time: str = "2021-01-26",
+                 c: float = 0.3,
                  **config) -> None:
         """
         Simulate epidemic model and calculates reproduction number
-        Assumption: contact matrix is available for all days between start_time and end_time
-        :param: start_time str, start date given in "%Y-%m-%d" format
-        :param: end_time str, end date given in "%Y-%m-%d" format
-        :param: c float, seasonality scale
+        Assumptions:
+        - contact matrix is available for all days between start_time and end_time
+        - parameter 'beta' does NOT contain seasonality effect (it has to be adjusted, if it is used)
+        :param start_time: str, start date given in "%Y-%m-%d" format
+        :param end_time: str, end date given in "%Y-%m-%d" format
+        :param c: float, seasonality scale
         :return: None
         """
         # Transform start and end time to timestamp
@@ -84,44 +96,51 @@ class Simulation:
             self.data = DataLoader(**config)
 
         # Calculate initial transmission rate (beta) based on reference matrix and self.r0
+        # Important: since R0 = beta * spectral_radius(NGM) * seasonality
+        # and method calculating initial beta returns R0 / spectral_radius(NGM)
+        # here we have to divide by the seasonality factor
         baseline_date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
         self.parameters.update(
             {"beta": self._get_initial_beta() / seasonality(t=baseline_date_ts, c0=c)})
+
         # Add one day for reference
         start_date_delta = 1
         start_date = datetime.datetime.strptime(start_time, '%Y-%m-%d') \
             - datetime.timedelta(days=start_date_delta)
         start_date_ts = start_date.timestamp()
+
         # Generate valid dates between start and end date
         valid_dates = [date
                        for date in self.data.contact_data.index
                        if start_date <=
                        datetime.datetime.strptime(date[0], "%Y-%m-%d") <=
                        datetime.datetime.strptime(end_time, "%Y-%m-%d")]
+
         # Get 0th day matrix
+        # - matrix from reference file, if simulation starting time (=start_date) = date of first measured matrix
+        # - matrix from day before start_date, if start_date is later
         zeroth_day_index = (start_date.strftime("%Y-%m-%d"),
                             (start_date + datetime.timedelta(days=7)).strftime("%Y-%m-%d"))
         zeroth_day_matrix = \
             self.data.reference_contact_data.iloc[0].to_numpy() \
             if start_time == '2020-03-31' \
             else self.data.contact_data.loc[zeroth_day_index].to_numpy()
+
         # Get transformed contact matrix (here, we have the reference matrix)
-        # Transform means: multiply by age distribution as a row (based on concept of contact matrices from data),
-        # then take average of result and transpose of result
-        # then divide by the age distribution as a column
         cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
 
         # Get solution for the first time interval (here, we have the reference matrix)
-        self.parameters["beta"] *= seasonality(t=start_date_ts, c0=c)
-        solution = self._get_solution(contact_mtx=cm_tr, is_start=True)
-        self.parameters["beta"] /= seasonality(t=start_date_ts, c0=c)
+        solution = self._get_solution(contact_mtx=cm_tr, is_start=True,
+                                      season_factor=seasonality(t=start_date_ts, c0=c))
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
-        r_eff = self._get_r_eff(cm=cm_tr, solution=solution) * seasonality(t=start_date_ts, c0=c)
+        r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
+                                season_factor=seasonality(t=start_date_ts, c0=c))
         r_eff_plot = copy.deepcopy(r_eff)
-        # Piecewise solution of the dynamical model: change contact matrix on basis of n_days (see in constructor)
+
+        # Piecewise solution of the dynamical model
         for date in valid_dates:
             # Convert date to timestamp
             date_ts = datetime.datetime.strptime(date[0], '%Y-%m-%d').timestamp()
@@ -133,28 +152,29 @@ class Simulation:
             cm_tr = self._get_transformed_cm(cm=cm)
 
             # Get solution for the actual time interval
-            self.parameters["beta"] *= seasonality(t=date_ts, c0=c)
-            solution = self._get_solution(contact_mtx=cm_tr,
-                                          iv=solution[-1])
-            self.parameters["beta"] /= seasonality(t=date_ts, c0=c)
+            solution = self._get_solution(contact_mtx=cm_tr, iv=solution[-1],
+                                          season_factor=seasonality(t=date_ts, c0=c))
 
-            # Append this solution piece
+            # Append this piece of solution
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
 
             # Get effective reproduction number for the actual time interval
-            r_eff = self._get_r_eff(cm=cm_tr, solution=solution, date=date) * seasonality(t=date_ts, c0=c)
+            r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
+                                    season_factor=seasonality(t=date_ts, c0=c))
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
         # Store results
         self.r_eff_plot = r_eff_plot
-        # added timestamps for simulation data points, first timestamp 1 day before data timestamps for reference matrix
+        self.sol_plot = sol_plot
+        # Add timestamps for simulation data points,
+        # first timestamp 1 day before data timestamps for reference matrix
         self.timestamps = np.concatenate([[start_date.timestamp()],
                                           np.linspace(start_ts, end_ts, len(self.r_eff_plot) - 1)])
-        self.sol_plot = sol_plot
 
     def _get_initial_beta(self) -> float:
         """
         Calculates transmission rate used in the dynamical model based on the reference matrix
+        Assumption: there is no seasonality effect, i.e. R0 = beta * spectral_radius(NGM)
         :return: float, transmission rate for reference matrix
         """
         # Get transformed reference matrix
@@ -169,6 +189,7 @@ class Simulation:
         eig_value_0 = self.r0_generator.get_eig_val(contact_mtx=cm,
                                                     population=population,
                                                     susceptibles=susceptibles)[0]
+
         # Get initial beta from baseline R0
         beta = self.r0 / eig_value_0
         return beta
@@ -186,34 +207,45 @@ class Simulation:
 
     def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
         """
-        Symmetrizes input contact matrix
+        Transforms input contact matrix:
+        - multiply by age distribution as a row (based on concept of contact matrices from data),
+        - then take average of result and transpose of result
+        - then divide by the age distribution as a column
         :param cm: np.ndarray, input contact matrix as a row vector
         :return: np.ndarray, symmetrized contact matrix in a matrix form
         """
         return transform_matrix(age_data=self.data.age_data,
                                 matrix=cm.reshape((self.model.n_age, self.model.n_age)))
 
-    def _get_r_eff(self, cm: np.ndarray, solution: np.ndarray, date: str = None) -> np.ndarray:
+    def _get_r_eff(self, cm: np.ndarray,
+                   solution: np.ndarray,
+                   season_factor: float = 1.0) -> np.ndarray:
         """
         Calculates r_eff values for actual time interval
         :param cm: np.ndarray, actual contact matrix
         :param solution: np.ndarray, solution piece of the model for the actual time interval
-        :param date: str date of calculation
+        :param season_factor: float, seasonality factor
         :return: np.ndarray, r_eff values
         """
         susceptibles = self.model.get_comp(solution, self.model.c_idx["s"])
         r_eff = self.parameters["beta"] * self.r0_generator.get_eig_val(contact_mtx=cm,
                                                                         population=self.model.population,
                                                                         susceptibles=susceptibles,
-                                                                        date=date,
                                                                         is_effective_calculated=self.is_r_eff_calc)
+        # Result is adjusted by the seasonality factor (since beta does not contain this effect)
+        r_eff *= season_factor
         return r_eff
 
-    def _get_solution(self, contact_mtx: np.ndarray, iv: np.ndarray = None, is_start: bool = False) -> np.ndarray:
+    def _get_solution(self, contact_mtx: np.ndarray,
+                      iv: np.ndarray = None,
+                      is_start: bool = False,
+                      season_factor: float = 1.0) -> np.ndarray:
         """
         Solves dynamical model for actual time interval (assumes uniformly divided intervals!)
         :param contact_mtx: np.ndarray, actual contact matrix
         :param iv: np.ndarray, initial value for odeint, mostly end point of the previous solution piece
+        :param is_start: bool, flag for calculating solution on the first time interval
+        :param season_factor: float, seasonality factor
         :return: np.ndarray, solution piece for this interval
         """
         if is_start:
@@ -227,6 +259,9 @@ class Simulation:
             initial_value = self.model.get_initial_values()
         else:
             initial_value = iv
+        # Beta is adjusted by the seasonality factor here
+        self.parameters["beta"] *= season_factor
         solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
                                            contact_matrix=contact_mtx)
+        self.parameters["beta"] /= season_factor
         return solution
