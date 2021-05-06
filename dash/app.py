@@ -169,10 +169,10 @@ params = html.Div(
         dcc.Slider(
             id='init_ratio_recovered',
             min=0,
-            max=0.1,
-            step=0.01,
+            max=0.05,
+            step=0.005,
             value=0.02,
-            marks=dict(zip(np.linspace(0, 0.1, 11), np.array(np.round(np.linspace(0, 0.1, 11), 2), dtype='str')))
+            marks=dict(zip(np.linspace(0, 0.05, 11), np.array(np.round(np.linspace(0, 0.05, 11), 3), dtype='str')))
         ),
     ]
 )
