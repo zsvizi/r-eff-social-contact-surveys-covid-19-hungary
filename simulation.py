@@ -301,6 +301,13 @@ class Simulation:
                 self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
                 initial_value = calculate_initial_value(self)
                 self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
+                np.savetxt("./../data/initial_value_" +
+                           self.baseline_cm_date[0] + "_" +
+                           str(self.initial_r0) + "_" +
+                           str(self.init_ratio_recovered) +
+                           ".csv",
+                           X=np.asarray(initial_value),
+                           delimiter=";")
             else:
                 initial_value = iv
         else:
