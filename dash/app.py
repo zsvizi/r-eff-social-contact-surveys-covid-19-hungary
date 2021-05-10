@@ -32,7 +32,8 @@ sim = Simulation(contact_data_json = 'dynmatrix_step_1d_window_7d_v15_kid_reduce
 sim.time_step = 1
 sim.r0 = 2.5
 sim.is_r_eff_calc = False
-sim.baseline_cm_date = ('2020-09-13', '2020-09-20')
+sim.date_for_calibration = '2020-09-13'
+sim.baseline_cm_date = (sim.date_for_calibration, '2020-09-20')
 
 methods = sim.data.reference_r_eff_data["method"].sort_values().unique()
 

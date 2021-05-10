@@ -35,15 +35,17 @@ class Simulation:
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
         self.r0 = 1.3
-        # Variable for clarifying contact matrix for baseline beta calculation
+        # Variables for clarifying contact matrix for baseline beta calculation
+        # - date for calibration is the selected date (for element of the tuple baseline cm date)
         # - ('2020-01-01', '2020-01-01'): reference matrix from reference_contact_data
         # - other tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
-        date_for_calibration = '2020-09-13'
-        self.baseline_cm_date = (date_for_calibration, '2020-09-20')
+        self.date_for_calibration = '2020-09-13'
+        self.baseline_cm_date = (self.date_for_calibration, '2020-09-20')
         # Are effective R values calculated?
         self.is_r_eff_calc = False
         # Date from effective reproduction number is calculated if is_r_eff_calc = True
-        self.date_r_eff_calc = datetime.datetime.strptime(date_for_calibration, "%Y-%m-%d").timestamp()
+        # Currently it is the the date_for_calibration as a timestamp
+        self.date_r_eff_calc = datetime.datetime.strptime(self.date_for_calibration, "%Y-%m-%d").timestamp()
 
         # TEST: added for tesing initial values
         # Is initial value test running?
@@ -116,7 +118,7 @@ class Simulation:
         # Important: since R0 = beta * spectral_radius(NGM) * seasonality
         # and method calculating initial beta returns R0 / spectral_radius(NGM)
         # here we have to divide by the seasonality factor
-        baseline_date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
+        baseline_date_ts = datetime.datetime.strptime(self.date_for_calibration, '%Y-%m-%d').timestamp()
         self.parameters.update(
             {"beta": self._get_initial_beta() / seasonality(t=baseline_date_ts, c0=c)})
 
@@ -144,7 +146,7 @@ class Simulation:
             else self.data.contact_data.loc[zeroth_day_index].to_numpy()
 
         # Get transformed contact matrix (here, we have the reference matrix)
-        cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
+        cm_tr = self.get_transformed_cm(cm=zeroth_day_matrix)
 
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True,
@@ -166,10 +168,13 @@ class Simulation:
             cm = self.data.contact_data.loc[date].to_numpy()
 
             # Transform actual contact matrix data
-            cm_tr = self._get_transformed_cm(cm=cm)
+            cm_tr = self.get_transformed_cm(cm=cm)
 
             # Get solution for the actual time interval
-            init_val = solution[-1] if date_ts != self.date_r_eff_calc else None  # TEST: added for testing init values
+            init_val = \
+                solution[-1] \
+                if date[0] != self.date_for_calibration \
+                else None  # TEST: added for testing init values
             solution = self._get_solution(contact_mtx=cm_tr, iv=init_val,
                                           season_factor=seasonality(t=date_ts, c0=c))
 
@@ -203,7 +208,7 @@ class Simulation:
         :return: float, transmission rate for reference matrix
         """
         # Get transformed reference matrix
-        cm = self._get_transformed_cm(cm=self._get_baseline_cm())
+        cm = self.get_transformed_cm(cm=self._get_baseline_cm())
 
         # Get initial values for susceptibles and population
         population = self.model.population
@@ -230,7 +235,7 @@ class Simulation:
             baseline_cm = self.data.contact_data.loc[self.baseline_cm_date].to_numpy()
         return baseline_cm
 
-    def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
+    def get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
         """
         Transforms input contact matrix:
         - multiply by age distribution as a row (based on concept of contact matrices from data),
@@ -282,27 +287,37 @@ class Simulation:
         t = np.linspace(0, time_step, 1 + time_step * self.bin_size)
         # TEST: added for testing init values (whole TRUE branch)
         if self.is_init_value_tested:
-
+            # Local function for calculating initial value (testing/calibration purposes)
             def calculate_initial_value(obj: "Simulation") -> np.ndarray:
+                # Get initial values with almost fully susceptible population
                 init_val = obj.model.get_initial_values()
+                # Time vector for the calculations
                 tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
                 # Get contact matrix for current date
                 cm = self.data.contact_data.loc[self.date_init_cm].to_numpy()
-                cm_tr = self._get_transformed_cm(cm=cm)
+                cm_tr = self.get_transformed_cm(cm=cm)
+                # Get solution starting from almost fully susceptible population
                 sol = obj.model.get_solution(t=tt, initial_values=init_val,
                                              parameters=obj.parameters,
                                              contact_matrix=cm_tr)
+                # Get time series of aggregated recovered population
                 sol_rec = obj.model.aggregate_by_age(sol, self.model.c_idx["r"])
+                # Get time point, where sol_rec / original_population reaches a threshold ratio
                 is_rec_ratio_less_than_init_ratio = \
                     (sol_rec / np.sum(self.data.age_data)) > self.init_ratio_recovered
+                # Return with solution vector at time point,
+                # where sol_rec / original_population reached a threshold ratio
                 return sol[is_rec_ratio_less_than_init_ratio][0].flatten()
 
             if iv is None:
+                # Scale and rescale beta by seasonality, since beta does not contain this effect
                 self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
                 initial_value = calculate_initial_value(self)
                 self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
+
+                # Save the calculated initial vector
                 np.savetxt("./../data/initial_value_" +
-                           self.baseline_cm_date[0] + "_" +
+                           self.date_for_calibration + "_" +
                            str(self.initial_r0) + "_" +
                            str(self.init_ratio_recovered) +
                            ".csv",
