@@ -17,7 +17,7 @@ def seasonality(t: float, c0: float = 0.3) -> float:
     :param c0: float, magnitude of the seasonality effect
     :return: float, seasonality factor
     """
-    d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
+    d = (t - datetime.datetime.strptime('2020-02-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
     return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
 
 
@@ -53,6 +53,7 @@ class Simulation:
         # Initial R0 for testing initial values
         self.initial_r0 = 2.0
         # Initial ratio of recovereds for testing initial values
+        self.ratio_recovered_first_wave = 0.01
         self.init_ratio_recovered = 0.02
         # Date for the initial contact matrix
         self.date_init_cm = '2020-08-30'
@@ -294,20 +295,30 @@ class Simulation:
                 # Time vector for the calculations
                 tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
                 # Get contact matrix for current date
-                cm = self.data.contact_data.loc[self.date_init_cm].to_numpy()
-                cm_tr = self.get_transformed_cm(cm=cm)
+                cm = obj.data.contact_data.loc[obj.date_init_cm].to_numpy()
+                cm_tr = obj.get_transformed_cm(cm=cm)
                 # Get solution starting from almost fully susceptible population
                 sol = obj.model.get_solution(t=tt, initial_values=init_val,
                                              parameters=obj.parameters,
                                              contact_matrix=cm_tr)
                 # Get time series of aggregated recovered population
-                sol_rec = obj.model.aggregate_by_age(sol, self.model.c_idx["r"])
+                sol_rec = obj.model.aggregate_by_age(sol, obj.model.c_idx["r"])
                 # Get time point, where sol_rec / original_population reaches a threshold ratio
+                normalized_recovered = sol_rec / np.sum(obj.data.age_data)
                 is_rec_ratio_less_than_init_ratio = \
-                    (sol_rec / np.sum(self.data.age_data)) > self.init_ratio_recovered
-                # Return with solution vector at time point,
+                    normalized_recovered > (obj.init_ratio_recovered - obj.ratio_recovered_first_wave)
+                # Get the state from the solution vector at time point,
                 # where sol_rec / original_population reached a threshold ratio
-                return sol[is_rec_ratio_less_than_init_ratio][0].flatten()
+                init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
+                # Put specified ratio of susceptibles to recovered,
+                # where ratio comes from the first epidemic wave
+                idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
+                idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
+                init_value[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
+                    obj.ratio_recovered_first_wave * obj.data.age_data
+                init_value[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
+                    obj.ratio_recovered_first_wave * obj.data.age_data
+                return init_value
 
             if iv is None:
                 # Scale and rescale beta by seasonality, since beta does not contain this effect
