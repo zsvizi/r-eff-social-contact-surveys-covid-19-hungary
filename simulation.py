@@ -292,6 +292,14 @@ class Simulation:
             def calculate_initial_value(obj: "Simulation") -> np.ndarray:
                 # Get initial values with almost fully susceptible population
                 init_val = obj.model.get_initial_values()
+                # Put specified ratio of susceptibles to recovered,
+                # where ratio comes from the first epidemic wave
+                idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
+                idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
+                init_val[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
+                    obj.ratio_recovered_first_wave * obj.data.age_data
+                init_val[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
+                    obj.ratio_recovered_first_wave * obj.data.age_data
                 # Time vector for the calculations
                 tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
                 # Get contact matrix for current date
@@ -310,14 +318,6 @@ class Simulation:
                 # Get the state from the solution vector at time point,
                 # where sol_rec / original_population reached a threshold ratio
                 init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
-                # Put specified ratio of susceptibles to recovered,
-                # where ratio comes from the first epidemic wave
-                idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
-                idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
-                init_value[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
-                    obj.ratio_recovered_first_wave * obj.data.age_data
-                init_value[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
-                    obj.ratio_recovered_first_wave * obj.data.age_data
                 return init_value
 
             if iv is None:
