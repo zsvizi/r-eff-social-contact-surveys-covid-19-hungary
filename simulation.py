@@ -84,6 +84,9 @@ class Simulation:
         self.timestamps = None
         self.repi_r0_list = None
 
+        self.init_latent = None
+        self.init_infected = None
+
     def run(self) -> None:
         """
         Run simulation and plot results
@@ -314,7 +317,7 @@ class Simulation:
                 # Get time point, where sol_rec / original_population reaches a threshold ratio
                 normalized_recovered = sol_rec / np.sum(obj.data.age_data)
                 is_rec_ratio_less_than_init_ratio = \
-                    normalized_recovered > (obj.init_ratio_recovered - obj.ratio_recovered_first_wave)
+                    normalized_recovered > obj.init_ratio_recovered
                 # Get the state from the solution vector at time point,
                 # where sol_rec / original_population reached a threshold ratio
                 init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
@@ -324,6 +327,8 @@ class Simulation:
                 # Scale and rescale beta by seasonality, since beta does not contain this effect
                 self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
                 initial_value = calculate_initial_value(self)
+                self.init_latent = np.sum(initial_value[self.model.n_age:3 * self.model.n_age])
+                self.init_infected = np.sum(initial_value[3 * self.model.n_age:-3 * self.model.n_age])
                 self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
 
                 # Save the calculated initial vector

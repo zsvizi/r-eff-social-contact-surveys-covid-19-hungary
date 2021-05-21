@@ -170,10 +170,10 @@ params = html.Div(
         dcc.Slider(
             id='init_ratio_recovered',
             min=0,
-            max=0.05,
-            step=0.005,
+            max=0.025,
+            step=0.0025,
             value=0.02,
-            marks=dict(zip(np.linspace(0, 0.05, 11), np.array(np.round(np.linspace(0, 0.05, 11), 3), dtype='str')))
+            marks=dict(zip(np.linspace(0, 0.025, 11), np.array(np.round(np.linspace(0, 0.025, 11), 4), dtype='str')))
         ),
     ]
 )
@@ -185,7 +185,10 @@ app = dash.Dash(
 )
 
 @app.callback(
-    Output("r_eff_plot","figure"),
+    [
+        Output("r_eff_plot","figure"),
+        Output("infected","children")
+     ],
     [
         Input("datepicker","value"),
         Input('seasonality','value'),
@@ -227,6 +230,9 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     )
     print("Done.")
 
+    latent = sim.init_latent
+    infected = sim.init_infected
+
 
     fig["data"].insert(0,sample_trace)
     fig["data"][0]["x"] = [datetime.fromtimestamp(t) for t in sim.timestamps]
@@ -240,7 +246,7 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     if test_init_value:
         fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f" % (initial_r0, init_ratio_recovered)
 
-    return fig
+    return [fig, 'Latent + Infected at 2020.09.13.: {} + {}'.format(latent, infected)]
 
 @app.callback(
     Output('contact_matrix','figure'),
@@ -260,6 +266,7 @@ def display_contact_matrix(hoverdata, cm_fig):
 app.layout = html.Div(children=[
     html.H1(children='R_eff estimation dashboard'),
     params,
+    html.Div(id='infected', style = dict()),
     html.Div(
         dcc.Graph(
             id='r_eff_plot',
