@@ -8,19 +8,6 @@ from model import RostModelHungary
 from r0 import R0Generator
 
 
-def seasonality(t: float, c0: float = 0.3) -> float:
-    """
-    Theoretical function for simulating seasonality of epidemic spread.
-    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
-    The period of the function is 366 days.
-    :param t: float, timestamp of the date
-    :param c0: float, magnitude of the seasonality effect
-    :return: float, seasonality factor
-    """
-    d = (t - datetime.datetime.strptime('2020-02-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
-    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
-
-
 class Simulation:
     def __init__(self, **config) -> None:
         """
@@ -57,6 +44,8 @@ class Simulation:
         self.init_ratio_recovered = 0.02
         # Date for the initial contact matrix
         self.date_init_cm = '2020-08-30'
+        # Flag for choosing between seasonality functions
+        self.is_step_used = False
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -109,6 +98,12 @@ class Simulation:
         :param c: float, seasonality scale
         :return: None
         """
+        # Local wrapper for seasonality cos function
+        def seasonality_cos_wrap(t: float):
+            return seasonality_cos(t=t, c0=c)
+
+        # Choose seasonality function for the simulation
+        seasonality_func = seasonality_step if self.is_step_used else seasonality_cos_wrap
 
         # Transform start and end time to timestamp
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
@@ -124,7 +119,7 @@ class Simulation:
         # here we have to divide by the seasonality factor
         baseline_date_ts = datetime.datetime.strptime(self.date_for_calibration, '%Y-%m-%d').timestamp()
         self.parameters.update(
-            {"beta": self._get_initial_beta() / seasonality(t=baseline_date_ts, c0=c)})
+            {"beta": self._get_initial_beta() / seasonality_func(t=baseline_date_ts)})
 
         # Add one day for reference
         start_date_delta = 1
@@ -154,13 +149,13 @@ class Simulation:
 
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True,
-                                      season_factor=seasonality(t=start_date_ts, c0=c))
+                                      season_factor=seasonality_func(t=start_date_ts))
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
-                                season_factor=seasonality(t=start_date_ts, c0=c))
+                                season_factor=seasonality_func(t=start_date_ts))
         r_eff_plot = copy.deepcopy(r_eff)
 
         # Piecewise solution of the dynamical model
@@ -180,7 +175,7 @@ class Simulation:
                 if date[0] != self.date_for_calibration \
                 else None  # TEST: added for testing init values
             solution = self._get_solution(contact_mtx=cm_tr, iv=init_val,
-                                          season_factor=seasonality(t=date_ts, c0=c))
+                                          season_factor=seasonality_func(t=date_ts))
 
             # Append this piece of solution
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
@@ -194,7 +189,7 @@ class Simulation:
 
             # Get effective reproduction number for the actual time interval
             r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
-                                    season_factor=seasonality(t=date_ts, c0=c))
+                                    season_factor=seasonality_func(t=date_ts))
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
         # Store results
@@ -289,44 +284,27 @@ class Simulation:
             time_step = self.time_step
         # Get time interval
         t = np.linspace(0, time_step, 1 + time_step * self.bin_size)
+        initial_value = self.get_initial_value(iv=iv, season_factor=season_factor)
+        # Beta is adjusted by the seasonality factor here
+        self.parameters["beta"] *= season_factor
+        solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
+                                           contact_matrix=contact_mtx)
+        self.parameters["beta"] /= season_factor
+        return solution
+
+    def get_initial_value(self, iv: np.ndarray, season_factor: float) -> np.ndarray:
+        """
+        Get initial value for solving model (from the start/piecewise)
+        :param iv: np.ndarray the initial value for solving model
+        :param season_factor: float, seasonality factor at the actual time
+        :return: np.ndarray initial value
+        """
         # TEST: added for testing init values (whole TRUE branch)
         if self.is_init_value_tested:
-            # Local function for calculating initial value (testing/calibration purposes)
-            def calculate_initial_value(obj: "Simulation") -> np.ndarray:
-                # Get initial values with almost fully susceptible population
-                init_val = obj.model.get_initial_values()
-                # Put specified ratio of susceptibles to recovered,
-                # where ratio comes from the first epidemic wave
-                idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
-                idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
-                init_val[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
-                    obj.ratio_recovered_first_wave * obj.data.age_data
-                init_val[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
-                    obj.ratio_recovered_first_wave * obj.data.age_data
-                # Time vector for the calculations
-                tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
-                # Get contact matrix for current date
-                cm = obj.data.contact_data.loc[obj.date_init_cm].to_numpy()
-                cm_tr = obj.get_transformed_cm(cm=cm)
-                # Get solution starting from almost fully susceptible population
-                sol = obj.model.get_solution(t=tt, initial_values=init_val,
-                                             parameters=obj.parameters,
-                                             contact_matrix=cm_tr)
-                # Get time series of aggregated recovered population
-                sol_rec = obj.model.aggregate_by_age(sol, obj.model.c_idx["r"])
-                # Get time point, where sol_rec / original_population reaches a threshold ratio
-                normalized_recovered = sol_rec / np.sum(obj.data.age_data)
-                is_rec_ratio_less_than_init_ratio = \
-                    normalized_recovered > obj.init_ratio_recovered
-                # Get the state from the solution vector at time point,
-                # where sol_rec / original_population reached a threshold ratio
-                init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
-                return init_value
-
             if iv is None:
                 # Scale and rescale beta by seasonality, since beta does not contain this effect
                 self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
-                initial_value = calculate_initial_value(self)
+                initial_value = calculate_initial_value(obj=self)
                 self.init_latent = np.sum(initial_value[self.model.n_age:3 * self.model.n_age])
                 self.init_infected = np.sum(initial_value[3 * self.model.n_age:-3 * self.model.n_age])
                 self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
@@ -347,9 +325,78 @@ class Simulation:
                 initial_value = self.data.initial_value
             else:
                 initial_value = iv
-        # Beta is adjusted by the seasonality factor here
-        self.parameters["beta"] *= season_factor
-        solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
-                                           contact_matrix=contact_mtx)
-        self.parameters["beta"] /= season_factor
-        return solution
+        return initial_value
+
+
+def seasonality_cos(t: float, c0: float = 0.3) -> float:
+    """
+    Theoretical cosine function for simulating seasonality of epidemic spread.
+    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
+    The period of the function is 366 days.
+    :param t: float, timestamp of the date
+    :param c0: float, magnitude of the seasonality effect
+    :return: float, seasonality factor
+    """
+    d = (t - datetime.datetime.strptime('2020-02-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
+    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
+
+
+def seasonality_step(t: float) -> float:
+    """
+    Theoretical step function for simulating seasonality of epidemic spread.
+    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
+    The period of the function is 366 days.
+    :param t: float, actual date in timestamp
+    :return: float, seasonality value
+    """
+    low_seasonality = 0.6
+    high_seasonality = 1.0
+    # Date when seasonality drops from high value (end of wintertime)
+    date_drop = '2019-03-01'
+    # Date when seasonality jumps to a high value (start of wintertime)
+    date_jump = '2019-11-01'
+    date_drop_ts = datetime.datetime.strptime(date_drop, '%Y-%m-%d').timestamp()
+    date_jump_ts = datetime.datetime.strptime(date_jump, '%Y-%m-%d').timestamp()
+    # Number of days passed between drop and jump
+    n_of_days_drop_to_jump = (date_jump_ts - date_drop_ts) // (24 * 3600)
+    # Number of days passed since initial drop
+    days_from_drop = (t - date_drop_ts) // (24 * 3600)
+    # if d_down is in [0, d_down_up], then we return low seasonality value
+    return low_seasonality if days_from_drop % 366 < n_of_days_drop_to_jump else high_seasonality
+
+
+def calculate_initial_value(obj: Simulation) -> np.ndarray:
+    """
+    Calculate initial value (for testing purposes)
+    :param obj: Simulation, actual Simulation object
+    :return: np.ndarray initial value array
+    """
+    # Get initial values with almost fully susceptible population
+    init_val = obj.model.get_initial_values()
+    # Put specified ratio of susceptibles to recovered,
+    # where ratio comes from the first epidemic wave
+    idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
+    idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
+    init_val[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
+        obj.ratio_recovered_first_wave * obj.data.age_data
+    init_val[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
+        obj.ratio_recovered_first_wave * obj.data.age_data
+    # Time vector for the calculations
+    tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
+    # Get contact matrix for current date
+    cm = obj.data.contact_data.loc[obj.date_init_cm].to_numpy()
+    cm_tr = obj.get_transformed_cm(cm=cm)
+    # Get solution starting from almost fully susceptible population
+    sol = obj.model.get_solution(t=tt, initial_values=init_val,
+                                 parameters=obj.parameters,
+                                 contact_matrix=cm_tr)
+    # Get time series of aggregated recovered population
+    sol_rec = obj.model.aggregate_by_age(sol, obj.model.c_idx["r"])
+    # Get time point, where sol_rec / original_population reaches a threshold ratio
+    normalized_recovered = sol_rec / np.sum(obj.data.age_data)
+    is_rec_ratio_less_than_init_ratio = \
+        normalized_recovered > obj.init_ratio_recovered
+    # Get the state from the solution vector at time point,
+    # where sol_rec / original_population reached a threshold ratio
+    init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
+    return init_value
