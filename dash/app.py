@@ -1,7 +1,5 @@
 import sys
 
-from dash_core_components.Checklist import Checklist
-from dash_html_components.Div import Div
 sys.path.insert(0,"/".join(sys.path[0].split("/")[:-1]))
 
 from simulation import Simulation
@@ -137,7 +135,7 @@ params = html.Div(
         html.P('Include recovered as immune'),
         daq.BooleanSwitch(
             id = "is_r_eff_calc",
-            on = False
+            on = True
         ),
         html.P('Baseline R_0'),
         dcc.Slider(
@@ -175,6 +173,13 @@ params = html.Div(
             value=0.02,
             marks=dict(zip(np.linspace(0, 0.025, 11), np.array(np.round(np.linspace(0, 0.025, 11), 4), dtype='str')))
         ),
+
+        # TEST: added for tesing initial values
+        html.P('Use step seasonality function (default: cosine)'),
+        daq.BooleanSwitch(
+            id="is_step_used",
+            on=False
+        ),
     ]
 )
 
@@ -183,6 +188,7 @@ app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.FLATLY]
 )
+
 
 @app.callback(
     [
@@ -198,11 +204,13 @@ app = dash.Dash(
         Input('test_init_value','on'),
         Input('initial_r_0','value'),
         Input('init_ratio_recovered','value'),
+        Input('is_step_used','on')
     ],
     [State("r_eff_plot","figure")]
 )
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
-                  test_init_value, initial_r0,  init_ratio_recovered,  # TEST: added for tesing initial values
+                  # TEST: added for tesing initial values
+                  test_init_value, initial_r0,  init_ratio_recovered, is_step_used,
                   fig):
 
     start_time = daterange[datepicker_range[0]]
@@ -215,6 +223,7 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     sim.is_init_value_tested = test_init_value
     sim.initial_r0 = initial_r0
     sim.init_ratio_recovered = init_ratio_recovered
+    sim.is_step_used = is_step_used
 
     print("Running simulation...")
     print("\tc", c)
