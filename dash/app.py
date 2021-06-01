@@ -132,7 +132,8 @@ params = html.Div(
             max=1.0,
             step=0.05,
             value=0.3,
-            marks=dict(zip(np.linspace(0, 1.0, 11), np.array(np.round(np.linspace(0, 1.0, 11), 1), dtype='str')))
+            marks=dict(zip(np.linspace(0, 1.0, 11),
+                           np.array(np.round(np.linspace(0, 1.0, 11), 1), dtype='str')))
         ),
         html.P('Include recovered as immune'),
         daq.BooleanSwitch(
@@ -146,7 +147,8 @@ params = html.Div(
             max=2.5,
             value=1.3,
             step=0.1,
-            marks=dict(zip(np.linspace(1, 2.5, 16), np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
+            marks=dict(zip(np.linspace(1, 2.5, 16),
+                           np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
         ),
         # TEST: added for tesing initial values
         html.P('Test initial value'),
@@ -158,28 +160,30 @@ params = html.Div(
         html.P('Initial R_0'),
         dcc.Slider(
             id="initial_r_0",
-            min=1,
-            max=2.5,
+            min=1.5,
+            max=3.0,
             value=2.5,
             step=0.1,
-            marks=dict(zip(np.linspace(1, 2.5, 16), np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
+            marks=dict(zip(np.linspace(1.5, 3.0, 16),
+                           np.array(np.round(np.linspace(1.5, 3.0, 16), 1), dtype='str')))
         ),
 
         # TEST: added for tesing initial values
         html.P('Initial ratio of recovereds'),
         dcc.Slider(
             id='init_ratio_recovered',
-            min=0,
-            max=0.025,
-            step=0.0025,
-            value=0.02,
-            marks=dict(zip(np.linspace(0, 0.025, 11), np.array(np.round(np.linspace(0, 0.025, 11), 4), dtype='str')))
+            min=0.01,
+            max=0.02,
+            step=0.001,
+            value=0.011,
+            marks=dict(zip(np.linspace(0.01, 0.02, 11),
+                           np.array(np.round(np.linspace(0.01, 0.02, 11), 4), dtype='str')))
         ),
 
         # TEST: added for tesing initial values
         html.P('Use step seasonality function (default: cosine)'),
         daq.BooleanSwitch(
-            id="is_step_used",
+            id="is_piecewise_linear_used",
             on=False
         ),
     ]
@@ -205,13 +209,13 @@ app = dash.Dash(
         Input('test_init_value', 'on'),
         Input('initial_r_0', 'value'),
         Input('init_ratio_recovered', 'value'),
-        Input('is_step_used', 'on')
+        Input('is_piecewise_linear_used', 'on')
     ],
     [State("r_eff_plot", "figure")]
 )
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
                   # TEST: added for tesing initial values
-                  test_init_value, initial_r0, init_ratio_recovered, is_step_used,
+                  test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used,
                   fig):
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
@@ -223,7 +227,7 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     sim.is_init_value_tested = test_init_value
     sim.initial_r0 = initial_r0
     sim.init_ratio_recovered = init_ratio_recovered
-    sim.is_step_used = is_step_used
+    sim.is_piecewise_linear_used = is_piecewise_linear_used
 
     print("Running simulation...")
     print("\tc", c)
@@ -252,8 +256,8 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
 
     # TEST: added for tesing initial values
     if test_init_value:
-        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f, step: %a" \
-                                  % (initial_r0, init_ratio_recovered, is_step_used)
+        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
+                                  % (initial_r0, init_ratio_recovered, is_piecewise_linear_used)
 
     return [fig, 'Latent + Infected at 2020.09.13.: {} + {}'.format(latent, infected)]
 
