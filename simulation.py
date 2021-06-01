@@ -45,7 +45,7 @@ class Simulation:
         # Date for the initial contact matrix
         self.date_init_cm = '2020-08-30'
         # Flag for choosing between seasonality functions
-        self.is_step_used = False
+        self.is_piecewise_linear_used = False
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -103,7 +103,7 @@ class Simulation:
             return seasonality_cos(t=t, c0=c)
 
         # Choose seasonality function for the simulation
-        seasonality_func = seasonality_step if self.is_step_used else seasonality_cos_wrap
+        seasonality_func = seasonality_step if self.is_piecewise_linear_used else seasonality_cos_wrap
 
         # Transform start and end time to timestamp
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
@@ -350,19 +350,38 @@ def seasonality_step(t: float) -> float:
     :return: float, seasonality value
     """
     low_seasonality = 0.6
-    high_seasonality = 1.0
-    # Date when seasonality drops from high value (end of wintertime)
-    date_drop = '2019-03-01'
-    # Date when seasonality jumps to a high value (start of wintertime)
-    date_jump = '2019-09-05'
-    date_drop_ts = datetime.datetime.strptime(date_drop, '%Y-%m-%d').timestamp()
-    date_jump_ts = datetime.datetime.strptime(date_jump, '%Y-%m-%d').timestamp()
-    # Number of days passed between drop and jump
-    n_of_days_drop_to_jump = (date_jump_ts - date_drop_ts) // (24 * 3600)
-    # Number of days passed since initial drop
-    days_from_drop = (t - date_drop_ts) // (24 * 3600)
-    # if d_down is in [0, d_down_up], then we return low seasonality value
-    return low_seasonality if days_from_drop % 366 < n_of_days_drop_to_jump else high_seasonality
+    high_seasonality = 1.1
+    lin_increase_duration = 31
+    lin_decrease_duration = 30
+    # Date when seasonality starts dropping from high value (end of wintertime)
+    date_max_last = '2019-03-01'
+    # Date when seasonality starts increasing to a high value (start of wintertime)
+    date_min_last = '2019-09-05'
+    date_max_last_ts = datetime.datetime.strptime(date_max_last, '%Y-%m-%d').timestamp()
+    date_min_last_ts = datetime.datetime.strptime(date_min_last, '%Y-%m-%d').timestamp()
+    # Number of days passed between last day of max and min
+    diff_max_min = (date_min_last_ts - date_max_last_ts) // (24 * 3600)
+    # Number of days passed since initial day of dropping started
+    days_from_drop = (t - date_max_last_ts) // (24 * 3600)
+    act_time = days_from_drop % 366
+
+    # Piecewise linear, 366-periodic seasonality function
+    # - linear decrease on [0, t1]
+    # - constant low value on [t1, t2]
+    # - linear increase on [t2, t3]
+    # - constant high value on [t3, 366]
+    if act_time < lin_increase_duration:
+        m = (low_seasonality - high_seasonality) / lin_increase_duration
+        seas_value = high_seasonality + m * act_time
+    elif lin_increase_duration <= act_time < diff_max_min:
+        seas_value = low_seasonality
+    elif diff_max_min <= act_time < (diff_max_min + lin_decrease_duration):
+        m = (high_seasonality - low_seasonality) / lin_decrease_duration
+        seas_value = low_seasonality + m * (act_time - diff_max_min)
+    else:
+        seas_value = high_seasonality
+
+    return seas_value
 
 
 def calculate_initial_value(obj: Simulation) -> np.ndarray:
