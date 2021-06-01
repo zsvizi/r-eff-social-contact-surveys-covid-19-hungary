@@ -152,7 +152,7 @@ params = html.Div(
         html.P('Test initial value'),
         daq.BooleanSwitch(
             id="test_init_value",
-            on=False
+            on=True
         ),
         # TEST: added for tesing initial values
         html.P('Initial R_0'),
@@ -160,7 +160,7 @@ params = html.Div(
             id="initial_r_0",
             min=1,
             max=2.5,
-            value=2.0,
+            value=2.5,
             step=0.1,
             marks=dict(zip(np.linspace(1, 2.5, 16), np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
         ),
@@ -252,7 +252,8 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
 
     # TEST: added for tesing initial values
     if test_init_value:
-        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f" % (initial_r0, init_ratio_recovered)
+        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f, step: %a" \
+                                  % (initial_r0, init_ratio_recovered, is_step_used)
 
     return [fig, 'Latent + Infected at 2020.09.13.: {} + {}'.format(latent, infected)]
 

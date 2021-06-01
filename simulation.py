@@ -354,7 +354,7 @@ def seasonality_step(t: float) -> float:
     # Date when seasonality drops from high value (end of wintertime)
     date_drop = '2019-03-01'
     # Date when seasonality jumps to a high value (start of wintertime)
-    date_jump = '2019-11-01'
+    date_jump = '2019-09-05'
     date_drop_ts = datetime.datetime.strptime(date_drop, '%Y-%m-%d').timestamp()
     date_jump_ts = datetime.datetime.strptime(date_jump, '%Y-%m-%d').timestamp()
     # Number of days passed between drop and jump
