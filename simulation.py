@@ -76,6 +76,7 @@ class Simulation:
         self.init_latent = None
         self.init_infected = None
         self.rec_ratio = None
+        self.seasonality_values = None
 
     def run(self) -> None:
         """
@@ -214,6 +215,7 @@ class Simulation:
         # first timestamp 1 day before data timestamps for reference matrix
         self.timestamps = np.concatenate([[start_date.timestamp()],
                                           np.linspace(start_ts, end_ts, len(self.r_eff_plot) - 1)])
+        self.seasonality_values = np.array([seasonality_func(t) for t in self.timestamps])
 
     def _get_initial_beta(self) -> float:
         """
