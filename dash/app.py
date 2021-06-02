@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+cmap = plt.get_cmap('Greens')
+
 sys.path.insert(0, "/".join(sys.path[0].split("/")[:-1]))
 from simulation import Simulation
 

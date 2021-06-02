@@ -323,7 +323,7 @@ class Simulation:
                 self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
 
                 # Save the calculated initial vector
-                np.savetxt("./../data/initial_value_" +
+                np.savetxt("./data/initial_value_" +
                            self.date_for_calibration + "_" +
                            str(self.initial_r0) + "_" +
                            str(self.init_ratio_recovered) +
