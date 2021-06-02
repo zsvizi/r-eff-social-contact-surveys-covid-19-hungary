@@ -289,11 +289,6 @@ def plot_updater(values,fig,cs_fig,r_fig,s_fig):
 
         fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
 
-        # TEST: added for tesing initial values
-        if sim_h.is_init_value_tested:
-            fig["data"][-1]["name"] += ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
-                                    % (sim_h.initial_r0, sim_h.init_ratio_recovered, sim_h.is_piecewise_linear_used)
-
         bin_edges = np.array(contact_data.start_ts)
         bin_number = np.digitize(sim_h.timestamps,bin_edges)
 
@@ -381,6 +376,10 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
 
     sim_to_store = deepcopy(sim)
     label = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
+    if sim_to_store.is_init_value_tested:
+        label += \
+                ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
+                                    % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, sim_to_store.is_piecewise_linear_used)
     model_storage[label] = sim_to_store
 
     options = [
