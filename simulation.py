@@ -75,6 +75,7 @@ class Simulation:
 
         self.init_latent = None
         self.init_infected = None
+        self.rec_ratio = None
 
     def run(self) -> None:
         """
@@ -167,6 +168,7 @@ class Simulation:
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
+        self.rec_ratio = np.array([0.0])
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
                                 season_factor=seasonality_func(t=start_date_ts))
         r_eff_plot = copy.deepcopy(r_eff)
@@ -277,6 +279,15 @@ class Simulation:
                                           is_effective_calculated=self.is_r_eff_calc_current_date)
         # Result is adjusted by the seasonality factor (since beta does not contain this effect)
         r_eff *= season_factor
+
+        # TEST: added for tesing initial values
+        recovereds = self.model.get_comp(solution, self.model.c_idx["r"])
+        self.rec_ratio = \
+            np.append(self.rec_ratio,
+                      np.sum(recovereds[1:] / np.sum(self.model.population), axis=1)) \
+            if self.is_r_eff_calc_current_date \
+            else np.append(self.rec_ratio, np.zeros(recovereds.shape[0] - 1))
+
         return r_eff
 
     def _get_solution(self, contact_mtx: np.ndarray,
