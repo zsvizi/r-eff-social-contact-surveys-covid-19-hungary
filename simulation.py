@@ -109,10 +109,10 @@ class Simulation:
             param_dict = dict()
             param_dict['low_seasonality'] = 0.6
             param_dict['high_seasonality'] = 1.1
-            param_dict['lin_increase_duration'] = 31
-            param_dict['lin_decrease_duration'] = 30
+            param_dict['lin_increase_duration'] = 61
+            param_dict['lin_decrease_duration'] = 61
             param_dict['date_max_last'] = '2019-03-01'
-            param_dict['date_min_last'] = '2019-09-05'
+            param_dict['date_min_last'] = '2019-09-01'
             return seasonality_piecewise_linear(t=t, param_dict=param_dict)
 
         # Choose seasonality function for the simulation
@@ -365,7 +365,7 @@ def seasonality_cos(t: float, c0: float = 0.3, origin: str = '2020-02-01') -> fl
     :return: float, seasonality factor
     """
     d = (t - datetime.datetime.strptime(origin, '%Y-%m-%d').timestamp()) / (24 * 3600)
-    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
+    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1.1 - 0.5 * c0
 
 
 def seasonality_piecewise_linear(t: float,
@@ -401,13 +401,13 @@ def seasonality_piecewise_linear(t: float,
     # - constant low value on [t1, t2]
     # - linear increase on [t2, t3]
     # - constant high value on [t3, 366]
-    if act_time < lin_increase_duration:
-        m = (low_seasonality - high_seasonality) / lin_increase_duration
+    if act_time < lin_decrease_duration:
+        m = (low_seasonality - high_seasonality) / lin_decrease_duration
         seas_value = high_seasonality + m * act_time
-    elif lin_increase_duration <= act_time < diff_max_min:
+    elif lin_decrease_duration <= act_time < diff_max_min:
         seas_value = low_seasonality
-    elif diff_max_min <= act_time < (diff_max_min + lin_decrease_duration):
-        m = (high_seasonality - low_seasonality) / lin_decrease_duration
+    elif diff_max_min <= act_time < (diff_max_min + lin_increase_duration):
+        m = (high_seasonality - low_seasonality) / lin_increase_duration
         seas_value = low_seasonality + m * (act_time - diff_max_min)
     else:
         seas_value = high_seasonality
