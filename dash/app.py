@@ -6,6 +6,7 @@ import sys
 
 import dash
 import dash_core_components as dcc
+from dash_core_components.Graph import Graph
 import dash_html_components as html
 import dash_bootstrap_components as dbc
 import dash_daq as daq
@@ -23,7 +24,8 @@ cmap = plt.get_cmap('Greens')
 sys.path.insert(0, "/".join(sys.path[0].split("/")[:-1]))
 from simulation import Simulation
 
-sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json')
+sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
+df = pd.DataFrame(sim.data.contact_data_json)
 
 sim.time_step = 1
 sim.r0 = 2.5
@@ -81,6 +83,26 @@ fig = go.Figure(
         #     y = sim.data.contact_data_json["avg_actual_outside_proxy"] + sim.data.contact_data_json["avg_family"],
         #     name = "contactnum"
         # )
+    ],
+    layout=dict(
+        selectdirection="h",
+        legend=dict(
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0
+        )
+    )
+)
+
+contact_fig = go.Figure(
+    data=[
+        go.Scatter(
+            x=[datetime.fromtimestamp(t) for t in df.start_ts],
+            y=df.avg_actual_outside_proxy + df.avg_family,
+            name="Contact numbers",
+            mode='lines'
+        )
     ],
     layout=dict(
         selectdirection="h",
@@ -186,7 +208,14 @@ params = html.Div(
             id="is_piecewise_linear_used",
             on=False
         ),
-    ]
+    ],
+    style={
+        'display' : 'none',
+        'position': 'relative',
+        'width':'100%', 
+        'background-color': 'white',
+        'zIndex':100
+    }
 )
 
 app = dash.Dash(
@@ -276,25 +305,73 @@ def display_contact_matrix(hoverdata, cm_fig):
         cm_fig['layout']['title'] = date
     return cm_fig
 
+@app.callback(
+    [Output('filter-elements','style'),
+    Output('param-settings','style')],
+    [Input('param-settings','n_clicks')],
+    [State('filter-elements','style'), State('param-settings','style')]
+)
+def show_hide_labels(n_clicks, style, button_style):
+    print("Callback\tshow_hide_labels")
+    if style==None:
+        style = {}
+    if n_clicks==None or n_clicks%2==0:
+        style.update({'display' : 'none'})
+        button_style['background-color'] = 'white'
+        return style, button_style
+    else:
+        style.update({'display' : 'block'})
+        button_style['background-color'] = 'lightgrey'
+        return style, button_style
+
 
 app.layout = html.Div(children=[
     html.H1(children='R_eff estimation dashboard'),
-    params,
-    html.Div(id='infected', style=dict()),
     html.Div(
-        dcc.Graph(
-            id='r_eff_plot',
-            figure=fig
-        ),
-        style=dict(display="inline-block", width='70%')
+        id='outer_container',
+        children = [
+            html.Button(
+                'Parameter settings', # filter button
+                id='param-settings', 
+                style={
+                    'text-align' : 'center', "width":"100%", 'padding':'10px'
+                }
+            ),
+            params,
+            html.Div(
+                id="output-container",
+                children = [
+                    html.Div(id='infected', style=dict()),
+                    html.Div(
+                        dcc.Graph(
+                            id='r_eff_plot',
+                            figure=fig
+                        ),
+                        style={'display':"inline-block", 'width':'70%','zIndex':-1}
+                    ),
+                    html.Div(
+                        dcc.Graph(
+                            id='contact_matrix',
+                            figure=contact_matrix_figure
+                        ),
+                        style={'display':"inline-block", 'width':'30%','zIndex':-1}
+                    ),
+                    html.Div(
+                        dcc.Graph(
+                            id='contact_numbers',
+                            figure=contact_fig
+                        ),
+                        style={'display':'block'}
+                    )
+                ],
+                style={'display':'block','zIndex':-1}
+            )
+        ],
+        style = {
+            'position':'relative'
+            }
     ),
-    html.Div(
-        dcc.Graph(
-            id='contact_matrix',
-            figure=contact_matrix_figure
-        ),
-        style=dict(display="inline-block", width='30%')
-    )
+    
 ])
 
 if __name__ == "__main__":
