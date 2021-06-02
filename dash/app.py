@@ -6,10 +6,6 @@ from datetime import datetime
 import sys
 
 import dash
-import dash_core_components as dcc
-from dash_core_components.Graph import Graph
-import dash_html_components as html
-from dash_html_components.Label import Label
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_daq as daq
@@ -99,11 +95,11 @@ fig = go.Figure(
             sim.data.reference_r_eff_data[method_mask]["datetime"].min(),
             sim.data.reference_r_eff_data[method_mask]["datetime"].max()
         ],
-        xaxis = dict(
-            title = "Date"
+        xaxis=dict(
+            title="Date"
         ),
-        yaxis = dict(
-            title = "R_eff"
+        yaxis=dict(
+            title="R_eff"
         ),
     )
 )
@@ -125,13 +121,13 @@ contact_fig = go.Figure(
             xanchor="left",
             x=0
         ),
-        xaxis = dict(
-            title = "Date"
+        xaxis=dict(
+            title="Date"
         ),
-        yaxis = dict(
-            title = "Average contactnum"
+        yaxis=dict(
+            title="Average contactnum"
         ),
-        xaxis_range = [
+        xaxis_range=[
             sim.data.reference_r_eff_data[method_mask]["datetime"].min(),
             sim.data.reference_r_eff_data[method_mask]["datetime"].max()
         ]
@@ -139,9 +135,9 @@ contact_fig = go.Figure(
 )
 
 contact_scatter = go.Figure(
-    layout = dict(
-        xaxis = dict(title = 'R_eff'),
-        yaxis = dict(title = 'Average contactnum')
+    layout=dict(
+        xaxis=dict(title='R_eff'),
+        yaxis=dict(title='Average contactnum')
     )
 )
 
@@ -240,11 +236,11 @@ params = html.Div(
         ),
     ],
     style={
-        'display' : 'none',
+        'display': 'none',
         'position': 'relative',
-        'width':'100%', 
+        'width': '100%',
         'background-color': 'white',
-        'zIndex':100
+        'zIndex': 100
     }
 )
 
@@ -253,32 +249,34 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.FLATLY]
 )
 
+
 @app.callback(
     [
         Output("r_eff_plot", "figure"),
         Output("contact_scatter", "figure"),
         Output("infected", "children"),
-        Output('recovered','figure'),
-        Output('seasonality-fig','figure')
+        Output('recovered', 'figure'),
+        Output('seasonality-fig', 'figure')
     ],
     [
-        Input('model-selector','value')
+        Input('model-selector', 'value')
     ],
     [
         State("r_eff_plot", "figure"),
-        State('contact_scatter','figure'),
-        State('recovered','figure'),
-        State('seasonality-fig','figure')
+        State('contact_scatter', 'figure'),
+        State('recovered', 'figure'),
+        State('seasonality-fig', 'figure')
     ]
 )
-def plot_updater(values,fig,cs_fig,r_fig,s_fig):
+def plot_updater(values, fig, cs_fig, r_fig, s_fig):
     # clear figs
     cs_fig["data"] = []
     r_fig["data"] = []
     s_fig["data"] = []
     fig["data"] = fig["data"][0:2]
 
-    for i,val in enumerate(values[::-1]):
+    latent, infected = None, None
+    for i, val in enumerate(values[::-1]):
         print(val)
         sim_h = model_storage[val]
 
@@ -290,12 +288,12 @@ def plot_updater(values,fig,cs_fig,r_fig,s_fig):
         fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
 
         bin_edges = np.array(contact_data.start_ts)
-        bin_number = np.digitize(sim_h.timestamps,bin_edges)
+        bin_number = np.digitize(sim_h.timestamps, bin_edges)
 
         temp_agg_r_eff = pd.DataFrame([sim_h.timestamps, sim_h.r_eff_plot, bin_number]).T
         temp_agg_r_eff.columns = ['ts', 'r_eff', 'binnum']
-        temp_agg_r_eff = temp_agg_r_eff.groupby('binnum').agg({'ts':'min','r_eff':'mean'})
-        temp_agg_r_eff["contactnum"] = temp_agg_r_eff.index.map(lambda i: contact_data.loc[i]["avg_contactnum"])
+        temp_agg_r_eff = temp_agg_r_eff.groupby('binnum').agg({'ts': 'min', 'r_eff': 'mean'})
+        temp_agg_r_eff["contactnum"] = temp_agg_r_eff.index.map(lambda k: contact_data.loc[k]["avg_contactnum"])
         temp_agg_r_eff['date'] = temp_agg_r_eff['ts'].map(lambda t: str(datetime.fromtimestamp(t).date()))
 
         cs_fig["data"].append(go.Scatter(mode="markers"))
@@ -322,12 +320,13 @@ def plot_updater(values,fig,cs_fig,r_fig,s_fig):
         latent = sim_h.init_latent
         infected = sim_h.init_infected
 
-    return fig, cs_fig,  f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', r_fig, s_fig
+    return fig, cs_fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', r_fig, s_fig
+
 
 @app.callback(
     [
-        Output('model-selector','options'),
-        Output('model-selector','value')
+        Output('model-selector', 'options'),
+        Output('model-selector', 'value')
     ],
     [
         Input("datepicker", "value"),
@@ -348,7 +347,6 @@ def plot_updater(values,fig,cs_fig,r_fig,s_fig):
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
                   # TEST: added for tesing initial values
                   test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used):
-
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
 
@@ -378,14 +376,14 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     label = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
     if sim_to_store.is_init_value_tested:
         label += \
-                ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
-                                    % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, sim_to_store.is_piecewise_linear_used)
+            ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
+            % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, sim_to_store.is_piecewise_linear_used)
     model_storage[label] = sim_to_store
 
     options = [
-                    {'label':k, 'value':k}
-                    for k,v in model_storage.items()
-                ]
+        {'label': k, 'value': k}
+        for k, v in model_storage.items()
+    ]
     value = [label]
     # return [fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', cs_fig]
     return [options, value]
@@ -405,22 +403,23 @@ def display_contact_matrix(hoverdata, cm_fig):
         cm_fig['layout']['title'] = date
     return cm_fig
 
+
 @app.callback(
-    [Output('filter-elements','style'),
-    Output('param-settings','style')],
-    [Input('param-settings','n_clicks')],
-    [State('filter-elements','style'), State('param-settings','style')]
+    [Output('filter-elements', 'style'),
+     Output('param-settings', 'style')],
+    [Input('param-settings', 'n_clicks')],
+    [State('filter-elements', 'style'), State('param-settings', 'style')]
 )
 def show_hide_labels(n_clicks, style, button_style):
     print("Callback\tshow_hide_labels")
-    if style==None:
+    if style is None:
         style = {}
-    if n_clicks==None or n_clicks%2==0:
-        style.update({'display' : 'none'})
+    if n_clicks is None or n_clicks % 2 == 0:
+        style.update({'display': 'none'})
         button_style['background-color'] = 'white'
         return style, button_style
     else:
-        style.update({'display' : 'block'})
+        style.update({'display': 'block'})
         button_style['background-color'] = 'lightgrey'
         return style, button_style
 
@@ -429,56 +428,56 @@ app.layout = html.Div(children=[
     html.H1(children='R_eff estimation dashboard'),
     html.Div(
         id='outer_container',
-        children = [
+        children=[
             html.Button(
-                'Parameter settings', # filter button
-                id='param-settings', 
+                'Parameter settings',  # filter button
+                id='param-settings',
                 style={
-                    'text-align' : 'center', "width":"100%", 'padding':'10px'
+                    'text-align': 'center', "width": "100%", 'padding': '10px'
                 }
             ),
             dcc.Dropdown(
                 id='model-selector',
-                options = [
-                    {'label':k, 'value':k}
-                    for k,v in model_storage.items()
+                options=[
+                    {'label': k, 'value': k}
+                    for k, v in model_storage.items()
                 ],
-                style = {'display':'block'},
+                style={'display': 'block'},
                 multi=True,
                 value=[]
             ),
             params,
             html.Div(
                 id="output-container",
-                children = [
+                children=[
                     html.Div(id='infected', style=dict()),
                     html.Div(
                         dcc.Graph(
                             id='r_eff_plot',
                             figure=fig
                         ),
-                        style={'display':"inline-block", 'width':'60%','zIndex':-1}
+                        style={'display': "inline-block", 'width': '60%', 'zIndex': -1}
                     ),
                     html.Div(
                         dcc.Graph(
                             id='contact_matrix',
                             figure=contact_matrix_figure
                         ),
-                        style={'display':"inline-block", 'width':'40%','zIndex':-1}
+                        style={'display': "inline-block", 'width': '40%', 'zIndex': -1}
                     ),
                     html.Div(
                         dcc.Graph(
                             id='contact_numbers',
                             figure=contact_fig
                         ),
-                        style={'display':'inline-block', 'width':'57.5%', 'zIndex':-1}
+                        style={'display': 'inline-block', 'width': '57.5%', 'zIndex': -1}
                     ),
                     html.Div(
                         dcc.Graph(
                             id='contact_scatter',
                             figure=contact_scatter
                         ),
-                        style={'display':'inline-block', 'width':'42.5%', 'zIndex':-1}
+                        style={'display': 'inline-block', 'width': '42.5%', 'zIndex': -1}
                     ),
                     html.Div(
                         dcc.Graph(
@@ -490,7 +489,7 @@ app.layout = html.Div(children=[
                                 )
                             )
                         ),
-                        style={'display':'inline-block', 'width':'57.5%', 'zIndex':-1}
+                        style={'display': 'inline-block', 'width': '57.5%', 'zIndex': -1}
                     ),
                     html.Div(
                         dcc.Graph(
@@ -502,17 +501,17 @@ app.layout = html.Div(children=[
                                 )
                             )
                         ),
-                        style={'display':'inline-block', 'width':'42.5%', 'zIndex':-1}
+                        style={'display': 'inline-block', 'width': '42.5%', 'zIndex': -1}
                     )
                 ],
-                style={'display':'block','zIndex':-1}
+                style={'display': 'block', 'zIndex': -1}
             )
         ],
-        style = {
-            'position':'relative'
-            }
+        style={
+            'position': 'relative'
+        }
     ),
-    
+
 ])
 
 if __name__ == "__main__":
