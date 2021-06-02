@@ -100,10 +100,23 @@ class Simulation:
         """
         # Local wrapper for seasonality cos function
         def seasonality_cos_wrap(t: float):
-            return seasonality_cos(t=t, c0=c)
+            return seasonality_cos(t=t, c0=c, origin='2020-02-01')
+
+        # Local wrapper for seasonality piecewise linear function
+        def seasonality_piecewise_linear_wrap(t: float):
+            param_dict = dict()
+            param_dict['low_seasonality'] = 0.6
+            param_dict['high_seasonality'] = 1.1
+            param_dict['lin_increase_duration'] = 31
+            param_dict['lin_decrease_duration'] = 30
+            param_dict['date_max_last'] = '2019-03-01'
+            param_dict['date_min_last'] = '2019-09-05'
+            return seasonality_piecewise_linear(t=t, param_dict=param_dict)
 
         # Choose seasonality function for the simulation
-        seasonality_func = seasonality_step if self.is_piecewise_linear_used else seasonality_cos_wrap
+        seasonality_func = seasonality_piecewise_linear_wrap \
+            if self.is_piecewise_linear_used \
+            else seasonality_cos_wrap
 
         # Transform start and end time to timestamp
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
@@ -328,35 +341,40 @@ class Simulation:
         return initial_value
 
 
-def seasonality_cos(t: float, c0: float = 0.3) -> float:
+def seasonality_cos(t: float, c0: float = 0.3, origin: str = '2020-02-01') -> float:
     """
     Theoretical cosine function for simulating seasonality of epidemic spread.
     It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
     The period of the function is 366 days.
+    :param origin: str, date from elapsed time is measured
     :param t: float, timestamp of the date
     :param c0: float, magnitude of the seasonality effect
     :return: float, seasonality factor
     """
-    d = (t - datetime.datetime.strptime('2020-02-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
+    d = (t - datetime.datetime.strptime(origin, '%Y-%m-%d').timestamp()) / (24 * 3600)
     return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
 
 
-def seasonality_step(t: float) -> float:
+def seasonality_piecewise_linear(t: float,
+                                 param_dict: dict) -> float:
     """
-    Theoretical step function for simulating seasonality of epidemic spread.
+    Theoretical piecewise linear function for simulating seasonality of epidemic spread.
     It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
     The period of the function is 366 days.
+    :param param_dict: dict, contains parameters of the seasonality function
     :param t: float, actual date in timestamp
     :return: float, seasonality value
     """
-    low_seasonality = 0.6
-    high_seasonality = 1.1
-    lin_increase_duration = 31
-    lin_decrease_duration = 30
-    # Date when seasonality starts dropping from high value (end of wintertime)
-    date_max_last = '2019-03-01'
-    # Date when seasonality starts increasing to a high value (start of wintertime)
-    date_min_last = '2019-09-05'
+    low_seasonality = param_dict['low_seasonality']
+    high_seasonality = param_dict['high_seasonality']
+    lin_increase_duration = param_dict['lin_increase_duration']
+    lin_decrease_duration = param_dict['lin_decrease_duration']
+
+    # date when seasonality starts dropping from high value (end of wintertime)
+    date_min_last = param_dict['date_min_last']
+    # date when seasonality starts dropping from high value (end of wintertime)
+    date_max_last = param_dict['date_max_last']
+
     date_max_last_ts = datetime.datetime.strptime(date_max_last, '%Y-%m-%d').timestamp()
     date_min_last_ts = datetime.datetime.strptime(date_min_last, '%Y-%m-%d').timestamp()
     # Number of days passed between last day of max and min
@@ -401,7 +419,7 @@ def calculate_initial_value(obj: Simulation) -> np.ndarray:
     init_val[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
         obj.ratio_recovered_first_wave * obj.data.age_data
     # Time vector for the calculations
-    tt = np.linspace(0, 200, 1 + 200 * obj.bin_size)
+    tt = np.linspace(0, 400, 1 + 400 * obj.bin_size)
     # Get contact matrix for current date
     cm = obj.data.contact_data.loc[obj.date_init_cm].to_numpy()
     cm_tr = obj.get_transformed_cm(cm=cm)
