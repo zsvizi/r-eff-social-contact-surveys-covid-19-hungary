@@ -9,17 +9,17 @@ import dash_core_components as dcc
 from dash_core_components.Graph import Graph
 import dash_html_components as html
 import dash_bootstrap_components as dbc
+import dash_core_components as dcc
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
-import plotly.graph_objects as go
+import dash_html_components as html
 import plotly.express as px
+import plotly.graph_objects as go
 
-import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-cmap = plt.get_cmap('Greens')
 
 sys.path.insert(0, "/".join(sys.path[0].split("/")[:-1]))
 from simulation import Simulation
@@ -27,16 +27,12 @@ from simulation import Simulation
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
 df = pd.DataFrame(sim.data.contact_data_json)
 
-sim.time_step = 1
-sim.r0 = 2.5
-sim.is_r_eff_calc = False
+sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json')
 sim.date_for_calibration = '2020-09-13'
 sim.baseline_cm_date = (sim.date_for_calibration, '2020-09-20')
 
 methods = sim.data.reference_r_eff_data["method"].sort_values().unique()
-
-m = methods[0]
-method_mask = sim.data.reference_r_eff_data["method"] == m
+method_mask = sim.data.reference_r_eff_data["method"] == methods[0]
 
 sample_trace = go.Scatter(
     x=[],
@@ -203,7 +199,7 @@ params = html.Div(
         ),
 
         # TEST: added for tesing initial values
-        html.P('Use step seasonality function (default: cosine)'),
+        html.P('Use piecewise linear seasonality function (default: cosine)'),
         daq.BooleanSwitch(
             id="is_piecewise_linear_used",
             on=False
@@ -246,6 +242,7 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
                   # TEST: added for tesing initial values
                   test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used,
                   fig):
+
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
 
