@@ -1,6 +1,7 @@
 # source venv/bin/activate
 # pip install dash, dash_daq
 
+from copy import deepcopy
 from datetime import datetime
 import sys
 
@@ -8,6 +9,7 @@ import dash
 import dash_core_components as dcc
 from dash_core_components.Graph import Graph
 import dash_html_components as html
+from dash_html_components.Label import Label
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_daq as daq
@@ -21,13 +23,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-cmap = plt.get_cmap('Greens')
+cmap = plt.get_cmap('nipy_spectral')
 
 sys.path.insert(0, "/".join(sys.path[0].split("/")[:-1]))
 from simulation import Simulation
 
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
-df = pd.DataFrame(sim.data.contact_data_json)
+contact_data = pd.DataFrame(sim.data.contact_data_json)
+contact_data["avg_contactnum"] = contact_data.avg_actual_outside_proxy + contact_data.avg_family
+
+model_storage = {}
 
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json')
 sim.date_for_calibration = '2020-09-13'
@@ -89,15 +94,25 @@ fig = go.Figure(
             y=1.02,
             xanchor="left",
             x=0
-        )
+        ),
+        xaxis_range=[
+            sim.data.reference_r_eff_data[method_mask]["datetime"].min(),
+            sim.data.reference_r_eff_data[method_mask]["datetime"].max()
+        ],
+        xaxis = dict(
+            title = "Date"
+        ),
+        yaxis = dict(
+            title = "R_eff"
+        ),
     )
 )
 
 contact_fig = go.Figure(
     data=[
         go.Scatter(
-            x=[datetime.fromtimestamp(t) for t in df.start_ts],
-            y=df.avg_actual_outside_proxy + df.avg_family,
+            x=[datetime.fromtimestamp(t) for t in contact_data.start_ts],
+            y=contact_data.avg_contactnum,
             name="Contact numbers",
             mode='lines'
         )
@@ -109,7 +124,24 @@ contact_fig = go.Figure(
             y=1.02,
             xanchor="left",
             x=0
-        )
+        ),
+        xaxis = dict(
+            title = "Date"
+        ),
+        yaxis = dict(
+            title = "Average contactnum"
+        ),
+        xaxis_range = [
+            sim.data.reference_r_eff_data[method_mask]["datetime"].min(),
+            sim.data.reference_r_eff_data[method_mask]["datetime"].max()
+        ]
+    )
+)
+
+contact_scatter = go.Figure(
+    layout = dict(
+        xaxis = dict(title = 'R_eff'),
+        yaxis = dict(title = 'Average contactnum')
     )
 )
 
@@ -221,11 +253,86 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.FLATLY]
 )
 
-
 @app.callback(
     [
         Output("r_eff_plot", "figure"),
-        Output("infected", "children")
+        Output("contact_scatter", "figure"),
+        Output("infected", "children"),
+        Output('recovered','figure'),
+        Output('seasonality-fig','figure')
+    ],
+    [
+        Input('model-selector','value')
+    ],
+    [
+        State("r_eff_plot", "figure"),
+        State('contact_scatter','figure'),
+        State('recovered','figure'),
+        State('seasonality-fig','figure')
+    ]
+)
+def plot_updater(values,fig,cs_fig,r_fig,s_fig):
+    # clear figs
+    cs_fig["data"] = []
+    r_fig["data"] = []
+    s_fig["data"] = []
+    fig["data"] = fig["data"][0:2]
+
+    for i,val in enumerate(values[::-1]):
+        print(val)
+        sim_h = model_storage[val]
+
+        fig["data"].append(go.Scatter())
+        fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
+        fig["data"][-1]["y"] = sim_h.r_eff_plot
+        fig["data"][-1]["name"] = val
+
+        fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+
+        # TEST: added for tesing initial values
+        if sim_h.is_init_value_tested:
+            fig["data"][-1]["name"] += ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
+                                    % (sim_h.initial_r0, sim_h.init_ratio_recovered, sim_h.is_piecewise_linear_used)
+
+        bin_edges = np.array(contact_data.start_ts)
+        bin_number = np.digitize(sim_h.timestamps,bin_edges)
+
+        temp_agg_r_eff = pd.DataFrame([sim_h.timestamps, sim_h.r_eff_plot, bin_number]).T
+        temp_agg_r_eff.columns = ['ts', 'r_eff', 'binnum']
+        temp_agg_r_eff = temp_agg_r_eff.groupby('binnum').agg({'ts':'min','r_eff':'mean'})
+        temp_agg_r_eff["contactnum"] = temp_agg_r_eff.index.map(lambda i: contact_data.loc[i]["avg_contactnum"])
+        temp_agg_r_eff['date'] = temp_agg_r_eff['ts'].map(lambda t: str(datetime.fromtimestamp(t).date()))
+
+        cs_fig["data"].append(go.Scatter(mode="markers"))
+        cs_fig["data"][-1]["x"] = temp_agg_r_eff.r_eff
+        cs_fig["data"][-1]["y"] = temp_agg_r_eff.contactnum
+        cs_fig["data"][-1]["text"] = temp_agg_r_eff.date
+        cs_fig["data"][-1]["hoverinfo"] = 'text'
+        cs_fig["data"][-1]["name"] = val
+        cs_fig["data"][-1]["showlegend"] = False
+        cs_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+
+        r_fig["data"].append(go.Scatter(mode="markers"))
+        r_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
+        r_fig["data"][-1]["y"] = sim_h.rec_ratio
+        r_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+        r_fig["data"][-1]["showlegend"] = False
+
+        s_fig["data"].append(go.Scatter(mode="markers"))
+        s_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
+        s_fig["data"][-1]["y"] = sim_h.seasonality_values
+        s_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+        s_fig["data"][-1]["showlegend"] = False
+
+        latent = sim_h.init_latent
+        infected = sim_h.init_infected
+
+    return fig, cs_fig,  f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', r_fig, s_fig
+
+@app.callback(
+    [
+        Output('model-selector','options'),
+        Output('model-selector','value')
     ],
     [
         Input("datepicker", "value"),
@@ -237,13 +344,15 @@ app = dash.Dash(
         Input('initial_r_0', 'value'),
         Input('init_ratio_recovered', 'value'),
         Input('is_piecewise_linear_used', 'on')
-    ],
-    [State("r_eff_plot", "figure")]
+    ]
 )
+# def select_period(datepicker_range, c, is_r_eff_calc, r0,
+#                   # TEST: added for tesing initial values
+#                   test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used,
+#                   fig,cs_fig):
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
                   # TEST: added for tesing initial values
-                  test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used,
-                  fig):
+                  test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used):
 
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
@@ -269,25 +378,18 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
         end_time=end_time,
         c=c
     )
-    print("Done.")
 
-    latent = sim.init_latent
-    infected = sim.init_infected
+    sim_to_store = deepcopy(sim)
+    label = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
+    model_storage[label] = sim_to_store
 
-    fig["data"].insert(0, sample_trace)
-    fig["data"][0]["x"] = [datetime.fromtimestamp(t) for t in sim.timestamps]
-    fig["data"][0]["y"] = sim.r_eff_plot
-    fig["data"][0]["name"] = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
-
-    for i, t in enumerate(fig["data"][:-3]):
-        fig["data"][i]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
-
-    # TEST: added for tesing initial values
-    if test_init_value:
-        fig["data"][0]["name"] += ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
-                                  % (initial_r0, init_ratio_recovered, is_piecewise_linear_used)
-
-    return [fig, 'Latent + Infected at 2020.09.13.: {} + {}'.format(latent, infected)]
+    options = [
+                    {'label':k, 'value':k}
+                    for k,v in model_storage.items()
+                ]
+    value = [label]
+    # return [fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', cs_fig]
+    return [options, value]
 
 
 @app.callback(
@@ -336,6 +438,16 @@ app.layout = html.Div(children=[
                     'text-align' : 'center', "width":"100%", 'padding':'10px'
                 }
             ),
+            dcc.Dropdown(
+                id='model-selector',
+                options = [
+                    {'label':k, 'value':k}
+                    for k,v in model_storage.items()
+                ],
+                style = {'display':'block'},
+                multi=True,
+                value=[]
+            ),
             params,
             html.Div(
                 id="output-container",
@@ -346,21 +458,52 @@ app.layout = html.Div(children=[
                             id='r_eff_plot',
                             figure=fig
                         ),
-                        style={'display':"inline-block", 'width':'70%','zIndex':-1}
+                        style={'display':"inline-block", 'width':'60%','zIndex':-1}
                     ),
                     html.Div(
                         dcc.Graph(
                             id='contact_matrix',
                             figure=contact_matrix_figure
                         ),
-                        style={'display':"inline-block", 'width':'30%','zIndex':-1}
+                        style={'display':"inline-block", 'width':'40%','zIndex':-1}
                     ),
                     html.Div(
                         dcc.Graph(
                             id='contact_numbers',
                             figure=contact_fig
                         ),
-                        style={'display':'block'}
+                        style={'display':'inline-block', 'width':'57.5%', 'zIndex':-1}
+                    ),
+                    html.Div(
+                        dcc.Graph(
+                            id='contact_scatter',
+                            figure=contact_scatter
+                        ),
+                        style={'display':'inline-block', 'width':'42.5%', 'zIndex':-1}
+                    ),
+                    html.Div(
+                        dcc.Graph(
+                            id='recovered',
+                            figure=go.Figure(
+                                layout=dict(
+                                    xaxis=dict(title='Date'),
+                                    yaxis=dict(title='Recovered ratio')
+                                )
+                            )
+                        ),
+                        style={'display':'inline-block', 'width':'57.5%', 'zIndex':-1}
+                    ),
+                    html.Div(
+                        dcc.Graph(
+                            id='seasonality-fig',
+                            figure=go.Figure(
+                                layout=dict(
+                                    xaxis=dict(title='Date'),
+                                    yaxis=dict(title='Seasonality')
+                                )
+                            )
+                        ),
+                        style={'display':'inline-block', 'width':'42.5%', 'zIndex':-1}
                     )
                 ],
                 style={'display':'block','zIndex':-1}
