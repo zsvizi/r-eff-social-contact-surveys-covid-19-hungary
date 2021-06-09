@@ -6,6 +6,7 @@ import numpy as np
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
 from r0 import R0Generator
+from seasonality import seasonality_cos, seasonality_piecewise_linear, seasonality_truncated_cos
 
 
 class Simulation:
@@ -44,8 +45,11 @@ class Simulation:
         self.init_ratio_recovered = 0.02
         # Date for the initial contact matrix
         self.date_init_cm = '2020-08-30'
-        # Flag for choosing between seasonality functions
-        self.is_piecewise_linear_used = False
+        # Value for choosing between seasonality functions
+        # 0: cosine seasonality
+        # 1: piecewise linear
+        # 2: truncated cosine
+        self.seasonality_idx = 0
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -108,17 +112,25 @@ class Simulation:
         def seasonality_piecewise_linear_wrap(t: float):
             param_dict = dict()
             param_dict['low_seasonality'] = 0.6
-            param_dict['high_seasonality'] = 1.1
+            param_dict['high_seasonality'] = 1.0
             param_dict['lin_increase_duration'] = 61
             param_dict['lin_decrease_duration'] = 61
             param_dict['date_max_last'] = '2019-03-01'
             param_dict['date_min_last'] = '2019-09-01'
             return seasonality_piecewise_linear(t=t, param_dict=param_dict)
 
+        # Local wrapper for seasonality truncated cosine function
+        def seasonality_truncated_cos_wrap(t: float):
+            return seasonality_truncated_cos(t=t, c0=c, origin='2020-02-01',
+                                             trunc_val=0.6)
+
         # Choose seasonality function for the simulation
-        seasonality_func = seasonality_piecewise_linear_wrap \
-            if self.is_piecewise_linear_used \
-            else seasonality_cos_wrap
+        if self.seasonality_idx == 0:
+            seasonality_func = seasonality_cos_wrap
+        elif self.seasonality_idx == 1:
+            seasonality_func = seasonality_piecewise_linear_wrap
+        else:
+            seasonality_func = seasonality_truncated_cos_wrap
 
         # Transform start and end time to timestamp
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
@@ -352,67 +364,6 @@ class Simulation:
             else:
                 initial_value = iv
         return initial_value
-
-
-def seasonality_cos(t: float, c0: float = 0.3, origin: str = '2020-02-01') -> float:
-    """
-    Theoretical cosine function for simulating seasonality of epidemic spread.
-    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
-    The period of the function is 366 days.
-    :param origin: str, date from elapsed time is measured
-    :param t: float, timestamp of the date
-    :param c0: float, magnitude of the seasonality effect
-    :return: float, seasonality factor
-    """
-    d = (t - datetime.datetime.strptime(origin, '%Y-%m-%d').timestamp()) / (24 * 3600)
-    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1.1 - 0.5 * c0
-
-
-def seasonality_piecewise_linear(t: float,
-                                 param_dict: dict) -> float:
-    """
-    Theoretical piecewise linear function for simulating seasonality of epidemic spread.
-    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
-    The period of the function is 366 days.
-    :param param_dict: dict, contains parameters of the seasonality function
-    :param t: float, actual date in timestamp
-    :return: float, seasonality value
-    """
-    low_seasonality = param_dict['low_seasonality']
-    high_seasonality = param_dict['high_seasonality']
-    lin_increase_duration = param_dict['lin_increase_duration']
-    lin_decrease_duration = param_dict['lin_decrease_duration']
-
-    # date when seasonality starts dropping from high value (end of wintertime)
-    date_min_last = param_dict['date_min_last']
-    # date when seasonality starts dropping from high value (end of wintertime)
-    date_max_last = param_dict['date_max_last']
-
-    date_max_last_ts = datetime.datetime.strptime(date_max_last, '%Y-%m-%d').timestamp()
-    date_min_last_ts = datetime.datetime.strptime(date_min_last, '%Y-%m-%d').timestamp()
-    # Number of days passed between last day of max and min
-    diff_max_min = (date_min_last_ts - date_max_last_ts) // (24 * 3600)
-    # Number of days passed since initial day of dropping started
-    days_from_drop = (t - date_max_last_ts) // (24 * 3600)
-    act_time = days_from_drop % 366
-
-    # Piecewise linear, 366-periodic seasonality function
-    # - linear decrease on [0, t1]
-    # - constant low value on [t1, t2]
-    # - linear increase on [t2, t3]
-    # - constant high value on [t3, 366]
-    if act_time < lin_decrease_duration:
-        m = (low_seasonality - high_seasonality) / lin_decrease_duration
-        seas_value = high_seasonality + m * act_time
-    elif lin_decrease_duration <= act_time < diff_max_min:
-        seas_value = low_seasonality
-    elif diff_max_min <= act_time < (diff_max_min + lin_increase_duration):
-        m = (high_seasonality - low_seasonality) / lin_increase_duration
-        seas_value = low_seasonality + m * (act_time - diff_max_min)
-    else:
-        seas_value = high_seasonality
-
-    return seas_value
 
 
 def calculate_initial_value(obj: Simulation) -> np.ndarray:

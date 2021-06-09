@@ -179,7 +179,7 @@ params = html.Div(
             min=0,
             max=1.0,
             step=0.05,
-            value=0.3,
+            value=0.8,
             marks=dict(zip(np.linspace(0, 1.0, 11),
                            np.array(np.round(np.linspace(0, 1.0, 11), 1), dtype='str')))
         ),
@@ -229,10 +229,15 @@ params = html.Div(
         ),
 
         # TEST: added for tesing initial values
-        html.P('Use piecewise linear seasonality function (default: cosine)'),
-        daq.BooleanSwitch(
-            id="is_piecewise_linear_used",
-            on=False
+        html.P('Seasonality function'),
+        dcc.Dropdown(
+            id='seas_select',
+            options=[
+                {'label': 'cosine', 'value': 0},
+                {'label': 'piecewise linear', 'value': 1},
+                {'label': 'truncated cosine', 'value': 2}
+            ],
+            value=0
         ),
     ],
     style={
@@ -337,7 +342,7 @@ def plot_updater(values, fig, cs_fig, r_fig, s_fig):
         Input('test_init_value', 'on'),
         Input('initial_r_0', 'value'),
         Input('init_ratio_recovered', 'value'),
-        Input('is_piecewise_linear_used', 'on')
+        Input('seas_select', 'value')
     ]
 )
 # def select_period(datepicker_range, c, is_r_eff_calc, r0,
@@ -346,7 +351,7 @@ def plot_updater(values, fig, cs_fig, r_fig, s_fig):
 #                   fig,cs_fig):
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
                   # TEST: added for tesing initial values
-                  test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used):
+                  test_init_value, initial_r0, init_ratio_recovered, seas_select):
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
 
@@ -357,7 +362,7 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     sim.is_init_value_tested = test_init_value
     sim.initial_r0 = initial_r0
     sim.init_ratio_recovered = init_ratio_recovered
-    sim.is_piecewise_linear_used = is_piecewise_linear_used
+    sim.seasonality_idx = seas_select
 
     print("Running simulation...")
     print("\tc", c)
@@ -375,9 +380,15 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     sim_to_store = deepcopy(sim)
     label = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
     if sim_to_store.is_init_value_tested:
+        if sim_to_store.seasonality_idx == 0:
+            seas_str = 'cosine'
+        elif sim_to_store.seasonality_idx == 1:
+            seas_str = 'piecewise linear'
+        else:
+            seas_str = 'truncated cosine'
         label += \
-            ", initial_r0=%.1f, initial ratio=%.3f, piecewise linear: %a" \
-            % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, sim_to_store.is_piecewise_linear_used)
+            ", initial_r0=%.1f, initial ratio=%.3f, seasonality: %s" \
+            % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, seas_str)
     model_storage[label] = sim_to_store
 
     options = [
