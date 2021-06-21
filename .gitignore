@@ -4,3 +4,4 @@ __pycache__/
 .ipynb_checkpoints/
 plots/
 *.html
+/data/initial_value_*.csv

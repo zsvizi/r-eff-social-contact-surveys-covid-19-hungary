@@ -6,19 +6,7 @@ import numpy as np
 from dataloader import DataLoader, transform_matrix
 from model import RostModelHungary
 from r0 import R0Generator
-
-
-def seasonality(t: float, c0: float = 0.3) -> float:
-    """
-    Theoretical function for simulating seasonality of epidemic spread.
-    It is assumed, that efficiency of the spread is larger during winter time, less during summer time.
-    The period of the function is 366 days.
-    :param t: float, timestamp of the date
-    :param c0: float, magnitude of the seasonality effect
-    :return: float, seasonality factor
-    """
-    d = (t - datetime.datetime.strptime('2019-12-01', '%Y-%m-%d').timestamp()) / (24 * 3600)
-    return 0.5 * c0 * np.cos(2 * (np.pi * d / 366)) + 1 - 0.5 * c0
+from seasonality import seasonality_cos, seasonality_piecewise_linear, seasonality_truncated_cos
 
 
 class Simulation:
@@ -34,15 +22,34 @@ class Simulation:
         # Time step in contact data
         self.time_step = 1
         # Baseline R0 for uncontrolled epidemic
-        self.r0 = 2.5
-        # Variable for clarifying contact matrix for baseline beta calculation
+        self.r0 = 1.3
+        # Variables for clarifying contact matrix for baseline beta calculation
+        # - date for calibration is the selected date (for element of the tuple baseline cm date)
         # - ('2020-01-01', '2020-01-01'): reference matrix from reference_contact_data
         # - other tuple of date strings (e.g. ('2020-08-30', '2020-09-06')): specified matrix from contact data
-        self.baseline_cm_date = ('2020-08-30', '2020-09-06')
+        self.date_for_calibration = '2020-09-13'
+        self.baseline_cm_date = (self.date_for_calibration, '2020-09-20')
         # Are effective R values calculated?
         self.is_r_eff_calc = False
         # Date from effective reproduction number is calculated if is_r_eff_calc = True
-        self.date_r_eff_calc = datetime.datetime.strptime('2020-09-13', "%Y-%m-%d").timestamp()
+        # Currently it is the the date_for_calibration as a timestamp
+        self.date_r_eff_calc = datetime.datetime.strptime(self.date_for_calibration, "%Y-%m-%d").timestamp()
+
+        # TEST: added for tesing initial values
+        # Is initial value test running?
+        self.is_init_value_tested = True
+        # Initial R0 for testing initial values
+        self.initial_r0 = 2.0
+        # Initial ratio of recovereds for testing initial values
+        self.ratio_recovered_first_wave = 0.01
+        self.init_ratio_recovered = 0.02
+        # Date for the initial contact matrix
+        self.date_init_cm = '2020-08-30'
+        # Value for choosing between seasonality functions
+        # 0: cosine seasonality
+        # 1: piecewise linear
+        # 2: truncated cosine
+        self.seasonality_idx = 0
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -70,6 +77,11 @@ class Simulation:
         self.timestamps = None
         self.repi_r0_list = None
 
+        self.init_latent = None
+        self.init_infected = None
+        self.rec_ratio = None
+        self.seasonality_values = None
+
     def run(self) -> None:
         """
         Run simulation and plot results
@@ -92,6 +104,33 @@ class Simulation:
         :param c: float, seasonality scale
         :return: None
         """
+        # Local wrapper for seasonality cos function
+        def seasonality_cos_wrap(t: float):
+            return seasonality_cos(t=t, c0=c, origin='2020-02-01')
+
+        # Local wrapper for seasonality piecewise linear function
+        def seasonality_piecewise_linear_wrap(t: float):
+            param_dict = dict()
+            param_dict['low_seasonality'] = 0.6
+            param_dict['high_seasonality'] = 1.0
+            param_dict['lin_increase_duration'] = 61
+            param_dict['lin_decrease_duration'] = 61
+            param_dict['date_max_last'] = '2019-03-01'
+            param_dict['date_min_last'] = '2019-09-01'
+            return seasonality_piecewise_linear(t=t, param_dict=param_dict)
+
+        # Local wrapper for seasonality truncated cosine function
+        def seasonality_truncated_cos_wrap(t: float):
+            return seasonality_truncated_cos(t=t, c0=c, origin='2020-02-01',
+                                             trunc_val=0.6)
+
+        # Choose seasonality function for the simulation
+        if self.seasonality_idx == 0:
+            seasonality_func = seasonality_cos_wrap
+        elif self.seasonality_idx == 1:
+            seasonality_func = seasonality_piecewise_linear_wrap
+        else:
+            seasonality_func = seasonality_truncated_cos_wrap
 
         # Transform start and end time to timestamp
         start_ts = datetime.datetime.strptime(start_time, '%Y-%m-%d').timestamp()
@@ -105,9 +144,9 @@ class Simulation:
         # Important: since R0 = beta * spectral_radius(NGM) * seasonality
         # and method calculating initial beta returns R0 / spectral_radius(NGM)
         # here we have to divide by the seasonality factor
-        baseline_date_ts = datetime.datetime.strptime(self.baseline_cm_date[0], '%Y-%m-%d').timestamp()
+        baseline_date_ts = datetime.datetime.strptime(self.date_for_calibration, '%Y-%m-%d').timestamp()
         self.parameters.update(
-            {"beta": self._get_initial_beta() / seasonality(t=baseline_date_ts, c0=c)})
+            {"beta": self._get_initial_beta() / seasonality_func(t=baseline_date_ts)})
 
         # Add one day for reference
         start_date_delta = 1
@@ -133,17 +172,18 @@ class Simulation:
             else self.data.contact_data.loc[zeroth_day_index].to_numpy()
 
         # Get transformed contact matrix (here, we have the reference matrix)
-        cm_tr = self._get_transformed_cm(cm=zeroth_day_matrix)
+        cm_tr = self.get_transformed_cm(cm=zeroth_day_matrix)
 
         # Get solution for the first time interval (here, we have the reference matrix)
         solution = self._get_solution(contact_mtx=cm_tr, is_start=True,
-                                      season_factor=seasonality(t=start_date_ts, c0=c))
+                                      season_factor=seasonality_func(t=start_date_ts))
         sol_plot = copy.deepcopy(solution)
 
         # Get effective reproduction numbers for the first time interval
         # R_eff is calculated at each points for which odeint gives values ('bin_size' amount of values for one day)
+        self.rec_ratio = np.array([0.0])
         r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
-                                season_factor=seasonality(t=start_date_ts, c0=c))
+                                season_factor=seasonality_func(t=start_date_ts))
         r_eff_plot = copy.deepcopy(r_eff)
 
         # Piecewise solution of the dynamical model
@@ -155,11 +195,15 @@ class Simulation:
             cm = self.data.contact_data.loc[date].to_numpy()
 
             # Transform actual contact matrix data
-            cm_tr = self._get_transformed_cm(cm=cm)
+            cm_tr = self.get_transformed_cm(cm=cm)
 
             # Get solution for the actual time interval
-            solution = self._get_solution(contact_mtx=cm_tr, iv=solution[-1],
-                                          season_factor=seasonality(t=date_ts, c0=c))
+            init_val = \
+                solution[-1] \
+                if date[0] != self.date_for_calibration \
+                else None  # TEST: added for testing init values
+            solution = self._get_solution(contact_mtx=cm_tr, iv=init_val,
+                                          season_factor=seasonality_func(t=date_ts))
 
             # Append this piece of solution
             sol_plot = np.append(sol_plot, solution[1:], axis=0)
@@ -173,7 +217,7 @@ class Simulation:
 
             # Get effective reproduction number for the actual time interval
             r_eff = self._get_r_eff(cm=cm_tr, solution=solution,
-                                    season_factor=seasonality(t=date_ts, c0=c))
+                                    season_factor=seasonality_func(t=date_ts))
             r_eff_plot = np.append(r_eff_plot, r_eff[1:], axis=0)
 
         # Store results
@@ -183,6 +227,7 @@ class Simulation:
         # first timestamp 1 day before data timestamps for reference matrix
         self.timestamps = np.concatenate([[start_date.timestamp()],
                                           np.linspace(start_ts, end_ts, len(self.r_eff_plot) - 1)])
+        self.seasonality_values = np.array([seasonality_func(t) for t in self.timestamps])
 
     def _get_initial_beta(self) -> float:
         """
@@ -191,7 +236,7 @@ class Simulation:
         :return: float, transmission rate for reference matrix
         """
         # Get transformed reference matrix
-        cm = self._get_transformed_cm(cm=self._get_baseline_cm())
+        cm = self.get_transformed_cm(cm=self._get_baseline_cm())
 
         # Get initial values for susceptibles and population
         population = self.model.population
@@ -218,7 +263,7 @@ class Simulation:
             baseline_cm = self.data.contact_data.loc[self.baseline_cm_date].to_numpy()
         return baseline_cm
 
-    def _get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
+    def get_transformed_cm(self, cm: np.ndarray) -> np.ndarray:
         """
         Transforms input contact matrix:
         - multiply by age distribution as a row (based on concept of contact matrices from data),
@@ -248,6 +293,15 @@ class Simulation:
                                           is_effective_calculated=self.is_r_eff_calc_current_date)
         # Result is adjusted by the seasonality factor (since beta does not contain this effect)
         r_eff *= season_factor
+
+        # TEST: added for tesing initial values
+        recovereds = self.model.get_comp(solution, self.model.c_idx["r"])
+        self.rec_ratio = \
+            np.append(self.rec_ratio,
+                      np.sum(recovereds[1:] / np.sum(self.model.population), axis=1)) \
+            if self.is_r_eff_calc_current_date \
+            else np.append(self.rec_ratio, np.zeros(recovereds.shape[0] - 1))
+
         return r_eff
 
     def _get_solution(self, contact_mtx: np.ndarray,
@@ -268,14 +322,82 @@ class Simulation:
             time_step = self.time_step
         # Get time interval
         t = np.linspace(0, time_step, 1 + time_step * self.bin_size)
-        # For first time interval, get initial values from model class method
-        if iv is None:
-            initial_value = self.data.initial_value
-        else:
-            initial_value = iv
+        initial_value = self.get_initial_value(iv=iv, season_factor=season_factor)
         # Beta is adjusted by the seasonality factor here
         self.parameters["beta"] *= season_factor
         solution = self.model.get_solution(t=t, initial_values=initial_value, parameters=self.parameters,
                                            contact_matrix=contact_mtx)
         self.parameters["beta"] /= season_factor
         return solution
+
+    def get_initial_value(self, iv: np.ndarray, season_factor: float) -> np.ndarray:
+        """
+        Get initial value for solving model (from the start/piecewise)
+        :param iv: np.ndarray the initial value for solving model
+        :param season_factor: float, seasonality factor at the actual time
+        :return: np.ndarray initial value
+        """
+        # TEST: added for testing init values (whole TRUE branch)
+        if self.is_init_value_tested:
+            if iv is None:
+                # Scale and rescale beta by seasonality, since beta does not contain this effect
+                self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
+                initial_value = calculate_initial_value(obj=self)
+                self.init_latent = np.sum(initial_value[self.model.n_age:3 * self.model.n_age])
+                self.init_infected = np.sum(initial_value[3 * self.model.n_age:-3 * self.model.n_age])
+                self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
+
+                # Save the calculated initial vector
+                np.savetxt("./data/initial_value_" +
+                           self.date_for_calibration + "_" +
+                           str(self.initial_r0) + "_" +
+                           str(self.init_ratio_recovered) +
+                           ".csv",
+                           X=np.asarray(initial_value),
+                           delimiter=";")
+            else:
+                initial_value = iv
+        else:
+            # For first time interval, get initial values from model class method
+            if iv is None:
+                initial_value = self.data.initial_value
+            else:
+                initial_value = iv
+        return initial_value
+
+
+def calculate_initial_value(obj: Simulation) -> np.ndarray:
+    """
+    Calculate initial value (for testing purposes)
+    :param obj: Simulation, actual Simulation object
+    :return: np.ndarray initial value array
+    """
+    # Get initial values with almost fully susceptible population
+    init_val = obj.model.get_initial_values()
+    # Put specified ratio of susceptibles to recovered,
+    # where ratio comes from the first epidemic wave
+    idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
+    idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
+    init_val[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
+        obj.ratio_recovered_first_wave * obj.data.age_data
+    init_val[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
+        obj.ratio_recovered_first_wave * obj.data.age_data
+    # Time vector for the calculations
+    tt = np.linspace(0, 400, 1 + 400 * obj.bin_size)
+    # Get contact matrix for current date
+    cm = obj.data.contact_data.loc[obj.date_init_cm].to_numpy()
+    cm_tr = obj.get_transformed_cm(cm=cm)
+    # Get solution starting from almost fully susceptible population
+    sol = obj.model.get_solution(t=tt, initial_values=init_val,
+                                 parameters=obj.parameters,
+                                 contact_matrix=cm_tr)
+    # Get time series of aggregated recovered population
+    sol_rec = obj.model.aggregate_by_age(sol, obj.model.c_idx["r"])
+    # Get time point, where sol_rec / original_population reaches a threshold ratio
+    normalized_recovered = sol_rec / np.sum(obj.data.age_data)
+    is_rec_ratio_less_than_init_ratio = \
+        normalized_recovered > obj.init_ratio_recovered
+    # Get the state from the solution vector at time point,
+    # where sol_rec / original_population reached a threshold ratio
+    init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
+    return init_value
