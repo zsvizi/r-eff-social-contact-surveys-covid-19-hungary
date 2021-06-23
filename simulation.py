@@ -34,22 +34,19 @@ class Simulation:
         # Date from effective reproduction number is calculated if is_r_eff_calc = True
         # Currently it is the the date_for_calibration as a timestamp
         self.date_r_eff_calc = datetime.datetime.strptime(self.date_for_calibration, "%Y-%m-%d").timestamp()
-
-        # TEST: added for tesing initial values
-        # Is initial value test running?
-        self.is_init_value_tested = True
-        # Initial R0 for testing initial values
-        self.initial_r0 = 2.0
-        # Initial ratio of recovereds for testing initial values
-        self.ratio_recovered_first_wave = 0.01
-        self.init_ratio_recovered = 0.02
-        # Date for the initial contact matrix
-        self.date_init_cm = '2020-08-30'
         # Value for choosing between seasonality functions
         # 0: cosine seasonality
         # 1: piecewise linear
         # 2: truncated cosine
         self.seasonality_idx = 0
+
+        # Initial R0 for calculating initial values
+        self.initial_r0 = 2.0
+        # Initial ratio of recovereds for calculating initial values
+        self.ratio_recovered_first_wave = 0.01
+        self.init_ratio_recovered = 0.02
+        # Date for the initial contact matrix
+        self.date_init_cm = '2020-08-30'
         # ------------- USER-DEFINED PARAMETERS END -------------
 
         # Instantiate DataLoader object to load model parameters, age distributions and contact matrices
@@ -337,67 +334,57 @@ class Simulation:
         :param season_factor: float, seasonality factor at the actual time
         :return: np.ndarray initial value
         """
-        # TEST: added for testing init values (whole TRUE branch)
-        if self.is_init_value_tested:
-            if iv is None:
-                # Scale and rescale beta by seasonality, since beta does not contain this effect
-                self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
-                initial_value = calculate_initial_value(obj=self)
-                self.init_latent = np.sum(initial_value[self.model.n_age:3 * self.model.n_age])
-                self.init_infected = np.sum(initial_value[3 * self.model.n_age:-3 * self.model.n_age])
-                self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
+        if iv is None:
+            # Scale and rescale beta by seasonality, since beta does not contain this effect
+            self.parameters["beta"] *= season_factor * (self.initial_r0 / self.r0)
+            initial_value = self.calculate_initial_value()
+            self.init_latent = np.sum(initial_value[self.model.n_age:3 * self.model.n_age])
+            self.init_infected = np.sum(initial_value[3 * self.model.n_age:-3 * self.model.n_age])
+            self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
 
-                # Save the calculated initial vector
-                np.savetxt("./data/initial_value_" +
-                           self.date_for_calibration + "_" +
-                           str(self.initial_r0) + "_" +
-                           str(self.init_ratio_recovered) +
-                           ".csv",
-                           X=np.asarray(initial_value),
-                           delimiter=";")
-            else:
-                initial_value = iv
+            # Save the calculated initial vector
+            np.savetxt("./data/initial_value_" +
+                       self.date_for_calibration + "_" +
+                       str(self.initial_r0) + "_" +
+                       str(self.init_ratio_recovered) +
+                       ".csv",
+                       X=np.asarray(initial_value),
+                       delimiter=";")
         else:
-            # For first time interval, get initial values from model class method
-            if iv is None:
-                initial_value = self.data.initial_value
-            else:
-                initial_value = iv
+            initial_value = iv
         return initial_value
 
-
-def calculate_initial_value(obj: Simulation) -> np.ndarray:
-    """
-    Calculate initial value (for testing purposes)
-    :param obj: Simulation, actual Simulation object
-    :return: np.ndarray initial value array
-    """
-    # Get initial values with almost fully susceptible population
-    init_val = obj.model.get_initial_values()
-    # Put specified ratio of susceptibles to recovered,
-    # where ratio comes from the first epidemic wave
-    idx_s_age_struct = obj.model.c_idx["s"] * obj.model.n_age
-    idx_r_age_struct = obj.model.c_idx["r"] * obj.model.n_age
-    init_val[idx_s_age_struct:(idx_s_age_struct + obj.model.n_age)] -= \
-        obj.ratio_recovered_first_wave * obj.data.age_data
-    init_val[idx_r_age_struct:(idx_r_age_struct + obj.model.n_age)] += \
-        obj.ratio_recovered_first_wave * obj.data.age_data
-    # Time vector for the calculations
-    tt = np.linspace(0, 400, 1 + 400 * obj.bin_size)
-    # Get contact matrix for current date
-    cm = obj.data.contact_data.loc[obj.date_init_cm].to_numpy()
-    cm_tr = obj.get_transformed_cm(cm=cm)
-    # Get solution starting from almost fully susceptible population
-    sol = obj.model.get_solution(t=tt, initial_values=init_val,
-                                 parameters=obj.parameters,
-                                 contact_matrix=cm_tr)
-    # Get time series of aggregated recovered population
-    sol_rec = obj.model.aggregate_by_age(sol, obj.model.c_idx["r"])
-    # Get time point, where sol_rec / original_population reaches a threshold ratio
-    normalized_recovered = sol_rec / np.sum(obj.data.age_data)
-    is_rec_ratio_less_than_init_ratio = \
-        normalized_recovered > obj.init_ratio_recovered
-    # Get the state from the solution vector at time point,
-    # where sol_rec / original_population reached a threshold ratio
-    init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
-    return init_value
+    def calculate_initial_value(self) -> np.ndarray:
+        """
+        Calculate initial value (for testing purposes)
+        :return: np.ndarray initial value array
+        """
+        # Get initial values with almost fully susceptible population
+        init_val = self.model.get_initial_values()
+        # Put specified ratio of susceptibles to recovered,
+        # where ratio comes from the first epidemic wave
+        idx_s_age_struct = self.model.c_idx["s"] * self.model.n_age
+        idx_r_age_struct = self.model.c_idx["r"] * self.model.n_age
+        init_val[idx_s_age_struct:(idx_s_age_struct + self.model.n_age)] -= \
+            self.ratio_recovered_first_wave * self.data.age_data
+        init_val[idx_r_age_struct:(idx_r_age_struct + self.model.n_age)] += \
+            self.ratio_recovered_first_wave * self.data.age_data
+        # Time vector for the calculations
+        tt = np.linspace(0, 400, 1 + 400 * self.bin_size)
+        # Get contact matrix for current date
+        cm = self.data.contact_data.loc[self.date_init_cm].to_numpy()
+        cm_tr = self.get_transformed_cm(cm=cm)
+        # Get solution starting from almost fully susceptible population
+        sol = self.model.get_solution(t=tt, initial_values=init_val,
+                                      parameters=self.parameters,
+                                      contact_matrix=cm_tr)
+        # Get time series of aggregated recovered population
+        sol_rec = self.model.aggregate_by_age(sol, self.model.c_idx["r"])
+        # Get time point, where sol_rec / original_population reaches a threshold ratio
+        normalized_recovered = sol_rec / np.sum(self.data.age_data)
+        is_rec_ratio_less_than_init_ratio = \
+            normalized_recovered > self.init_ratio_recovered
+        # Get the state from the solution vector at time point,
+        # where sol_rec / original_population reached a threshold ratio
+        init_value = sol[is_rec_ratio_less_than_init_ratio][0].flatten()
+        return init_value

@@ -198,13 +198,6 @@ params = html.Div(
             marks=dict(zip(np.linspace(1, 2.5, 16),
                            np.array(np.round(np.linspace(1, 2.5, 16), 1), dtype='str')))
         ),
-        # TEST: added for tesing initial values
-        html.P('Test initial value'),
-        daq.BooleanSwitch(
-            id="test_init_value",
-            on=True
-        ),
-        # TEST: added for tesing initial values
         html.P('Initial R_0'),
         dcc.Slider(
             id="initial_r_0",
@@ -215,8 +208,6 @@ params = html.Div(
             marks=dict(zip(np.linspace(1.5, 3.0, 16),
                            np.array(np.round(np.linspace(1.5, 3.0, 16), 1), dtype='str')))
         ),
-
-        # TEST: added for tesing initial values
         html.P('Initial ratio of recovereds'),
         dcc.Slider(
             id='init_ratio_recovered',
@@ -227,8 +218,6 @@ params = html.Div(
             marks=dict(zip(np.linspace(0.01, 0.02, 11),
                            np.array(np.round(np.linspace(0.01, 0.02, 11), 4), dtype='str')))
         ),
-
-        # TEST: added for tesing initial values
         html.P('Seasonality function'),
         dcc.Dropdown(
             id='seas_select',
@@ -307,20 +296,18 @@ def plot_updater(values, fig, cs_fig, r_fig, s_fig):
         cs_fig["data"][-1]["text"] = temp_agg_r_eff.date
         cs_fig["data"][-1]["hoverinfo"] = 'text'
         cs_fig["data"][-1]["name"] = val
-        cs_fig["data"][-1]["showlegend"] = False
-        cs_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
 
         r_fig["data"].append(go.Scatter(mode="markers"))
         r_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
         r_fig["data"][-1]["y"] = sim_h.rec_ratio
-        r_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
-        r_fig["data"][-1]["showlegend"] = False
 
         s_fig["data"].append(go.Scatter(mode="markers"))
         s_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
         s_fig["data"][-1]["y"] = sim_h.seasonality_values
-        s_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
-        s_fig["data"][-1]["showlegend"] = False
+
+        for fig_ in [cs_fig, r_fig, s_fig]:
+            fig_["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+            fig_["data"][-1]["showlegend"] = False
 
         latent = sim_h.init_latent
         infected = sim_h.init_infected
@@ -338,28 +325,19 @@ def plot_updater(values, fig, cs_fig, r_fig, s_fig):
         Input('seasonality', 'value'),
         Input('is_r_eff_calc', 'on'),
         Input('baseline_r_0', 'value'),
-        # TEST: added for tesing initial values
-        Input('test_init_value', 'on'),
         Input('initial_r_0', 'value'),
         Input('init_ratio_recovered', 'value'),
         Input('seas_select', 'value')
     ]
 )
-# def select_period(datepicker_range, c, is_r_eff_calc, r0,
-#                   # TEST: added for tesing initial values
-#                   test_init_value, initial_r0, init_ratio_recovered, is_piecewise_linear_used,
-#                   fig,cs_fig):
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
-                  # TEST: added for tesing initial values
-                  test_init_value, initial_r0, init_ratio_recovered, seas_select):
+                  initial_r0, init_ratio_recovered, seas_select):
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
 
     sim.is_r_eff_calc = is_r_eff_calc
     sim.r0 = r0
 
-    # TEST: added for tesing initial values
-    sim.is_init_value_tested = test_init_value
     sim.initial_r0 = initial_r0
     sim.init_ratio_recovered = init_ratio_recovered
     sim.seasonality_idx = seas_select
@@ -379,16 +357,15 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
 
     sim_to_store = deepcopy(sim)
     label = "simulated R_eff, R_0=%.1f, c=%.1f, immune %s" % (r0, c, str(is_r_eff_calc))
-    if sim_to_store.is_init_value_tested:
-        if sim_to_store.seasonality_idx == 0:
-            seas_str = 'cosine'
-        elif sim_to_store.seasonality_idx == 1:
-            seas_str = 'piecewise linear'
-        else:
-            seas_str = 'truncated cosine'
-        label += \
-            ", initial_r0=%.1f, initial ratio=%.3f, seasonality: %s" \
-            % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, seas_str)
+    if sim_to_store.seasonality_idx == 0:
+        seas_str = 'cosine'
+    elif sim_to_store.seasonality_idx == 1:
+        seas_str = 'piecewise linear'
+    else:
+        seas_str = 'truncated cosine'
+    label += \
+        ", initial_r0=%.1f, initial ratio=%.3f, seasonality: %s" \
+        % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, seas_str)
     model_storage[label] = sim_to_store
 
     options = [
@@ -396,7 +373,6 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
         for k, v in model_storage.items()
     ]
     value = [label]
-    # return [fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', cs_fig]
     return [options, value]
 
 
