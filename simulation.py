@@ -198,7 +198,7 @@ class Simulation:
             init_val = \
                 solution[-1] \
                 if date[0] != self.date_for_calibration \
-                else None  # TEST: added for testing init values
+                else None
             solution = self._get_solution(contact_mtx=cm_tr, iv=init_val,
                                           season_factor=seasonality_func(t=date_ts))
 
@@ -291,7 +291,6 @@ class Simulation:
         # Result is adjusted by the seasonality factor (since beta does not contain this effect)
         r_eff *= season_factor
 
-        # TEST: added for tesing initial values
         recovereds = self.model.get_comp(solution, self.model.c_idx["r"])
         self.rec_ratio = \
             np.append(self.rec_ratio,
@@ -356,7 +355,7 @@ class Simulation:
 
     def calculate_initial_value(self) -> np.ndarray:
         """
-        Calculate initial value (for testing purposes)
+        Calculate initial value
         :return: np.ndarray initial value array
         """
         # Get initial values with almost fully susceptible population
