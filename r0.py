@@ -23,13 +23,13 @@ class R0Generator:
                     susceptibles: np.ndarray, population: np.ndarray,
                     is_effective_calculated: bool = True) -> np.ndarray:
         # contact matrix needed for effective reproduction number: [c_{j,i} * S_i(t) / N_i(t)]
-        contact_matrix = contact_mtx / population.reshape((-1, 1))
+        contact_matrix = contact_mtx / population.reshape((1, -1))
         cm_tensor = np.tile(contact_matrix, (susceptibles.shape[0], 1, 1))
-        susc_tensor = susceptibles.reshape((susceptibles.shape[0], susceptibles.shape[1], 1))
+        susc_tensor = susceptibles.reshape((susceptibles.shape[0], 1, susceptibles.shape[1]))
         contact_matrix_tensor = cm_tensor * susc_tensor
         eig_val_eff = []
         # Debugging (for non-baseline calculations):
-        # (np.abs(contact_mtx * (susceptibles[4].reshape(-1, 1) / population.reshape((-1, 1))) -
+        # (np.abs(contact_mtx * (susceptibles[4].reshape(1, -1) / population.reshape((1, -1))) -
         #         contact_matrix_tensor[4]) < 1e-6).all()
         for cm in contact_matrix_tensor:
             contact_matrix = cm if is_effective_calculated else contact_mtx
