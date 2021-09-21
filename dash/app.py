@@ -226,7 +226,7 @@ params = html.Div(
                 {'label': 'piecewise linear', 'value': 1},
                 {'label': 'truncated cosine', 'value': 2}
             ],
-            value=0
+            value=2
         ),
     ],
     style={
