@@ -52,7 +52,8 @@ reference_r_eff.csv
 processus2015/*
     contains shapefile for small Hungarian administrative units (called processus)
     used to create the schematic borders of the country for Figure 3 in 02_manuscript_figures.ipynb
-
+report_input_distr_sigma2_2021-12-06.json
+    needed for distributions of users according to different categories in each time window
 
 initial_value.csv
     initial value for the epidemic model
