@@ -1,0 +1,78 @@
+contact_matrix/dynmatrix_step_1d_window_7d_v15_kid_masked_all.json
+    file containing the results of the weighted dynamic contact matrix calculation
+    aggregating responses by a daily shifted 7-day wide sliding window
+    contains 374 elements, from 2020-03-24 to 2020-04-01
+    a sample element is
+        mode                                                                           both
+        actual_outside_proxy              [[0.1321647898078417, 0.4547771955206113, 0.10...
+        actual_inside_proxy               [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0....
+        family                            [[0.22339564861445646, 0.31895015027845836, 0....
+        contact_matrix                    [[0.3555604384222981, 0.7737273457990697, 0.20...
+        contact_matrix_std                                                             None
+        seasonality_index                                                              None
+        start_ts                                                               1585008000.0
+        start_date                                                               2020-03-24
+        end_ts                                                                 1585612800.0
+        end_date                                                                 2020-03-31
+        weightsums                        {'0.0': 158.68988949843495, '1.0': 169.1863945...
+        reference_weekday                 [[0.0, 0.0, 0.8401029343247352, 1.211922895149...
+        reference_weekend                 [[0.0, 0.0, 0.6642252359282599, 1.235913829680...
+        std_actual_outside_proxy          [[0.754181991060281, 1.5708857596865253, 0.307...
+        avg_actual_outside_proxy                                                   1.758152
+        avg_actual_inside_proxy                                                         0.0
+        avg_family                                                                 1.765497
+        avg_actual_outside_proxy_grouped  {'0.0': 1.5249648288477191, '1.0': 2.172742609...
+        avg_actual_inside_proxy_grouped   {'0.0': 0.0, '1.0': 0.0, '2.0': 0.0, '3.0': 0....
+        avg_family_grouped                {'0.0': 2.391176802561613, '1.0': 2.3054285682...
+        avg_masking                                                                     NaN
+        avg_masking_grouped               {'0.0': nan, '1.0': nan, '2.0': nan, '3.0': na... 
+    explanation
+        mode
+            whether the calculation was for both adults and kids, it is always "both" in this data (string)
+        actual_outside_proxy
+            average age-stratified outside-of-home contact matrix (8x8 list-of-list)
+        actual_inside_proxy
+            average age-stratified inside-of-home contact matrix (8x8 list-of-list)
+        family
+            average age-stratified contact matrix from household structure (8x8 list-of-list)
+        contact_matrix
+            average age-stratified contact matrix (8x8 list-of-list)
+        contact_matrix_std
+            empty
+        seasonality_index
+            empty
+        start_ts
+            Unix timestamp of aggregation time window start (float)
+        start_date
+            YYYY-mm-dd format of aggregation time window start (string)
+        end_ts
+            Unix timestamp of aggregation time window end (float)
+        end_date
+            YYYY-mm-dd format of aggregation time window end (string)
+        weightsums
+            weightsums of different age groups (dict, string -> float)
+        reference_weekday
+            average age-stratified contact matrix of pre-COVID weekdays (8x8 list-of-list)
+        reference_weekend
+            average age-stratified contact matrix of pre-COVID weekends (8x8 list-of-list)
+        std_actual_outside_proxy
+            not relevant
+        avg_actual_outside_proxy
+            average outside proxy contacts (float)
+        avg_actual_inside_proxy
+            average outside proxy contacts (float)
+        avg_family
+            average family contacts (float)
+        avg_actual_outside_proxy_grouped
+            average outside proxy contacts by age group (dict, string -> float)
+        avg_actual_inside_proxy_grouped
+            average inside proxy contacts by age group (dict, string -> float)
+        avg_family_grouped
+            average family contacts by age group (dict, string -> float)
+        avg_masking
+            average fraction of people wearing a mask in proxy contact situations (float)
+        avg_masking_grouped
+            average fraction of people wearing a mask in proxy contact situations by age group (dict, string -> float)
+
+_kid_masked_ is a dataset where we reduced reported kid contact numbers by masking percentage based on representative survey
+_kis_reduced_ is a dataset where we reduced reported kid contact numbers for 0 and 1 agegroups with 20+ contacts arbitrarily to 11

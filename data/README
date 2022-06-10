@@ -1,0 +1,64 @@
+avrContNum.csv
+    representative contact numbers
+    ,-separated CSV, decimal is a point
+    columns are
+        date (as a range of the CATI survey)
+        average proxy contacts
+
+OxCGRT_latest_responses.csv
+    data from https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/OxCGRT_latest_responses.csv, filtered to Hungary
+    for description see https://www.bsg.ox.ac.uk/research/research-projects/covid-19-government-response-tracker
+hungary_measures.csv
+    previous data subsetted to Hungary                    
+
+weather.xls
+    monthly average weather data for Hungary
+    source https://www.ksh.hu/docs/hun/xstadat/xstadat_evkozi/e_met001.html
+    columns
+        Időszak	= period	
+        Közép-hőmérséklet, °C	= mean temperature (°C)	
+        Maximális	hőmérséklet, °C	= maximum temperature (°C)
+        Minimális hőmérséklet,°C = minimum temperature (°C)
+        Csapadékos nap	= number of days with precipitation
+        Lehullott csapadék, mm	= precipitation (mm)
+        A napsütéses órák száma	= number of sunshine hours
+        Szeles napok száma, szélsebesség>=10 m/s = number of windy days (windspeed>=10 m/s)                  
+
+r_eff_estimations.csv
+    ;-separated CSV with , as decimal separator(!)
+    R_eff estimations using different statistical methods
+    confirmed cases do not contain imported and institutional cases for this calculation
+    float columns are value + lower and upper limit of confidence interval
+    date is day differences from 2020-03-03 in days in 5th column
+    used in 01_external_r_eff_dataset.ipynb
+    columns are
+        1 [ignore]
+        2 R_eff
+        3 ci_lower
+        4 ci_upper
+        5 daydiff from 2020-03-03
+test_positivity.csv
+    from https://research.physcon.uni-obuda.hu/COVID19MagyarEpi
+    used in 01_external_r_eff_dataset.ipynb
+    ;-separated CSV with , as decimal separator(!)
+        Dátum; = date
+        Napi esetszám [fő/nap]; = daily confirmed cases (people / day)
+        Napi tesztszám [db/nap]; = daily test numbers (tests / day)
+        Tesztpozitivitás [%] = test postivitiy rate (%)
+reference_r_eff.csv
+    result of 01_external_r_eff_dataset.ipynb
+    merged and cleaned version of the above two datasets
+
+processus2015/*
+    contains shapefile for small Hungarian administrative units (called processus)
+    used to create the schematic borders of the country for Figure 3 in 02_manuscript_figures.ipynb
+
+
+initial_value.csv
+    initial value for the epidemic model
+age_distribution.xls
+    age distribution of the Hungarian population
+model_parameters.json
+    parameters for the simulation model
+
+

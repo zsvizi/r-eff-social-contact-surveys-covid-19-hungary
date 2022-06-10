@@ -21,8 +21,8 @@ import pandas as pd
 
 cmap = plt.get_cmap('nipy_spectral')
 
-sys.path.insert(0, "/".join(sys.path[0].split("/")[:-1]))
-from simulation import Simulation
+sys.path.append("../")
+from src.simulation import Simulation
 
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
 contact_data = pd.DataFrame(sim.data.contact_data_json)

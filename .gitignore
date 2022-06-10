@@ -2,6 +2,10 @@
 /.idea
 __pycache__/
 .ipynb_checkpoints/
-plots/
 *.html
 /data/initial_value_*.csv
+/contact_matrix/repr_sum.csv
+/plots/contactnum_2.png
+/plots/mask_2.png
+/plots/masking_1.png
+/plots/masking_2.png
