@@ -1,4 +1,4 @@
-contact_matrix/results/dynmatrix_step_1d_window_7d_v15_kid_masked_all.json
+contact_matrix/dynmatrix_step_1d_window_7d_v15_kid_masked_all.json
     file containing the results of the weighted dynamic contact matrix calculation
     aggregating responses by a daily shifted 7-day wide sliding window
     contains 374 elements, from 2020-03-24 to 2020-04-01

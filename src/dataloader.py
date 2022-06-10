@@ -7,7 +7,7 @@ import pandas as pd
 import xlrd
 
 
-PROJECT_PATH = os.path.dirname(os.path.realpath(__file__))
+PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 def transform_matrix(age_data, matrix: np.ndarray):
@@ -28,13 +28,13 @@ class DataLoader:
 
         # Contact matrices
         self._contact_data_json = os.path.join(PROJECT_PATH,
-                                               "contact_matrix", "results",
+                                               "contact_matrix",
                                                "dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
-                                                    "contact_matrix", "results",
+                                                    "contact_matrix",
                                                     "online_reference.csv")
         self._representative_contact_file = os.path.join(PROJECT_PATH,
-                                                         "contact_matrix", "results",
+                                                         "contact_matrix",
                                                          "Repr_SumWDKFMtx_weightnorm.csv")
 
         # Load model parameters
@@ -53,7 +53,7 @@ class DataLoader:
         if "contact_data_json" in config:
             contact_data_json = str(config.get("contact_data_json"))
             self._contact_data_json = os.path.join(PROJECT_PATH,
-                                                   "contact_matrix", "results",
+                                                   "contact_matrix",
                                                    contact_data_json)
             self._get_contact_data_json()
 

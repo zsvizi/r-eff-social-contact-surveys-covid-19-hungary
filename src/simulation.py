@@ -1,12 +1,13 @@
 import copy
 import datetime
+import os
 
 import numpy as np
 
-from dataloader import DataLoader, transform_matrix
-from model import RostModelHungary
-from r0 import R0Generator
-from seasonality import seasonality_cos, seasonality_piecewise_linear, seasonality_truncated_cos
+from src.dataloader import DataLoader, PROJECT_PATH, transform_matrix
+from src.model import RostModelHungary
+from src.r0 import R0Generator
+from src.seasonality import seasonality_cos, seasonality_piecewise_linear, seasonality_truncated_cos
 
 
 class Simulation:
@@ -342,11 +343,11 @@ class Simulation:
             self.parameters["beta"] /= season_factor * (self.initial_r0 / self.r0)
 
             # Save the calculated initial vector
-            np.savetxt("./data/initial_value_" +
+            np.savetxt(os.path.join(PROJECT_PATH, "data/initial_value_" +
                        self.date_for_calibration + "_" +
                        str(self.initial_r0) + "_" +
                        str(self.init_ratio_recovered) +
-                       ".csv",
+                       ".csv"),
                        X=np.asarray(initial_value),
                        delimiter=";")
         else:
