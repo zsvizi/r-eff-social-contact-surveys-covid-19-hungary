@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 from datetime import datetime
+import os
 import sys
 
 import dash
@@ -21,7 +22,8 @@ import pandas as pd
 
 cmap = plt.get_cmap('nipy_spectral')
 
-sys.path.append("../")
+PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(PROJECT_PATH)
 from src.simulation import Simulation
 
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
@@ -93,7 +95,8 @@ fig = go.Figure(
         ),
         xaxis_range=[
             sim.data.reference_r_eff_data[method_mask]["datetime"].min(),
-            sim.data.reference_r_eff_data[method_mask]["datetime"].max()
+            # sim.data.reference_r_eff_data[method_mask]["datetime"].max()
+            "2021-01-15"
         ],
         xaxis=dict(
             title="Date"
@@ -129,7 +132,8 @@ contact_fig = go.Figure(
         ),
         xaxis_range=[
             sim.data.reference_r_eff_data[method_mask]["datetime"].min(),
-            sim.data.reference_r_eff_data[method_mask]["datetime"].max()
+            # sim.data.reference_r_eff_data[method_mask]["datetime"].max()
+            "2021-01-15"
         ]
     )
 )

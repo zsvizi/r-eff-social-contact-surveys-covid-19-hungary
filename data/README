@@ -6,7 +6,8 @@ avrContNum.csv
         average proxy contacts
 
 OxCGRT_latest_responses.csv
-    data from https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/OxCGRT_latest_responses.csv, filtered to Hungary
+    data from https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/OxCGRT_latest_responses.csv,
+    filtered to Hungary
     for description see https://www.bsg.ox.ac.uk/research/research-projects/covid-19-government-response-tracker
 hungary_measures.csv
     previous data subsetted to Hungary                    
@@ -60,6 +61,6 @@ initial_value.csv
 age_distribution.xls
     age distribution of the Hungarian population
 model_parameters.json
-    parameters for the simulation model
+    parameters for the epidemic model
 
 
