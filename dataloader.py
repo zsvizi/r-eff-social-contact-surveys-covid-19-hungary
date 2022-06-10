@@ -29,7 +29,7 @@ class DataLoader:
         # Contact matrices
         self._contact_data_json = os.path.join(PROJECT_PATH,
                                                "contact_matrix", "results",
-                                               "dynmatrix_step_1d_window_7d_v12_kid_reduced_all.json")
+                                               "dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json")
         self._reference_contact_file = os.path.join(PROJECT_PATH,
                                                     "contact_matrix", "results",
                                                     "online_reference.csv")
