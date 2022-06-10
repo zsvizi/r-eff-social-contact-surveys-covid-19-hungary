@@ -10,8 +10,8 @@ This project is developed and tested with Python 3.8+. To install project depend
 
 ## Data
 See description about corresponding data about
-- contact matrices in `./contact_matrix/README.md`
-- epidemic model parameters, `R_eff` estimations in `./data/README.md`
+- contact matrices in `./contact_matrix/README`
+- epidemic model parameters, `R_eff` estimations in `./data/README`
 
 ## Simulation
 Code for simulating the epidemic model and calculating effective reproduction number is available in folder `./src`. 
