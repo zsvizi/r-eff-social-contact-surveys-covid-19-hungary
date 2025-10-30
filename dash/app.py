@@ -1,30 +1,22 @@
-# source venv/bin/activate
-# pip install dash, dash_daq
-
 from copy import deepcopy
 from datetime import datetime
-import os
-import sys
 
 import dash
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
+from dash import dcc
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
-import dash_html_components as html
-import plotly.express as px
-import plotly.graph_objects as go
-
+from dash import html
 from matplotlib.colors import to_hex
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
+from src.simulation import Simulation
 
 cmap = plt.get_cmap('nipy_spectral')
-
-PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(PROJECT_PATH)
-from src.simulation import Simulation
 
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
 contact_data = pd.DataFrame(sim.data.contact_data_json)
@@ -162,7 +154,7 @@ contact_matrix_figure.update_layout(coloraxis_colorbar=dict(
     tickvals=np.linspace(-4, np.log10(25), 7),
     ticktext=list(map(lambda i: "%.3f" % i, np.power(10, np.linspace(-4, np.log10(25), 7))))
 ))
-daterange = pd.date_range(start='2020-03-01', end=str(datetime.now().date()), freq='D').map(
+daterange = pd.date_range(start='2020-03-01', end='2021-03-01', freq='D').map(
     lambda d: str(d.date())).tolist()
 
 params = html.Div(
@@ -266,24 +258,24 @@ app = dash.Dash(
         State('seasonality-fig', 'figure')
     ]
 )
-def plot_updater(values, fig, cs_fig, r_fig, s_fig):
+def plot_updater(values, m_fig, cs_fig, r_fig, s_fig):
     # clear figs
     cs_fig["data"] = []
     r_fig["data"] = []
     s_fig["data"] = []
-    fig["data"] = fig["data"][0:2]
+    m_fig["data"] = m_fig["data"][0:2]
 
     latent, infected = None, None
     for i, val in enumerate(values[::-1]):
         print(val)
         sim_h = model_storage[val]
 
-        fig["data"].append(go.Scatter())
-        fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
-        fig["data"][-1]["y"] = sim_h.r_eff_plot
-        fig["data"][-1]["name"] = val
+        m_fig["data"].append(go.Scatter())
+        m_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
+        m_fig["data"][-1]["y"] = sim_h.r_eff_plot
+        m_fig["data"][-1]["name"] = val
 
-        fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+        m_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(m_fig["data"]) * 0.5))
 
         bin_edges = np.array(contact_data.start_ts)
         bin_number = np.digitize(sim_h.timestamps, bin_edges)
@@ -310,13 +302,13 @@ def plot_updater(values, fig, cs_fig, r_fig, s_fig):
         s_fig["data"][-1]["y"] = sim_h.seasonality_values
 
         for fig_ in [cs_fig, r_fig, s_fig]:
-            fig_["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(fig["data"]) * 0.5))
+            fig_["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(m_fig["data"]) * 0.5))
             fig_["data"][-1]["showlegend"] = False
 
         latent = sim_h.init_latent
         infected = sim_h.init_infected
 
-    return fig, cs_fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', r_fig, s_fig
+    return m_fig, cs_fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', r_fig, s_fig
 
 
 @app.callback(
@@ -506,4 +498,4 @@ app.layout = html.Div(children=[
 ])
 
 if __name__ == "__main__":
-    app.run_server(host='127.0.0.1', port='8050', debug=True)
+    app.run(host='127.0.0.1', port='8050', debug=True)
