@@ -1,5 +1,13 @@
 from copy import deepcopy
 from datetime import datetime
+import os
+import sys
+from pathlib import Path
+
+# Make `python dash/app.py` work from any current working directory.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import dash
 import dash_bootstrap_components as dbc
@@ -236,6 +244,7 @@ params = html.Div(
 
 app = dash.Dash(
     __name__,
+    assets_folder=str(PROJECT_ROOT / "dash" / "assets"),
     external_stylesheets=[dbc.themes.FLATLY]
 )
 
@@ -498,4 +507,9 @@ app.layout = html.Div(children=[
 ])
 
 if __name__ == "__main__":
-    app.run(host='127.0.0.1', port='8050', debug=True)
+    app.run(
+        host=os.getenv("DASH_HOST", "127.0.0.1"),
+        port=int(os.getenv("DASH_PORT", "8050")),
+        debug=os.getenv("DASH_DEBUG", "0") == "1",
+    )
+
