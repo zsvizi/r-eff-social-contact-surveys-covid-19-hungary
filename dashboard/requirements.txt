@@ -1,0 +1,12 @@
+# Runtime dependencies for the dashboard and simulation (Python 3.12)
+# These are the oldest practical releases in the supported major lines that
+# provide Python 3.12 wheels and work together with the legacy application.
+dash==2.18.2
+dash-bootstrap-components==1.6.0
+dash-daq==0.5.0
+matplotlib==3.8.2
+numpy==1.26.4
+pandas==2.1.4
+plotly==5.18.0
+scipy==1.11.4
+xlrd==2.0.1
